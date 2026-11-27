@@ -7,7 +7,7 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
-    gemini_embed_model: str = "text-embedding-004"
+    gemini_embed_model: str = "gemini-embedding-001"
 
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"

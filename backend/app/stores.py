@@ -57,7 +57,7 @@ class DualHybridStore:
         self._neo4j: AsyncDriver = AsyncGraphDatabase.driver(s.neo4j_uri, auth=(s.neo4j_user, s.neo4j_password))
         self._qdrant = AsyncQdrantClient(url=s.qdrant_url, api_key=s.qdrant_api_key or None, check_compatibility=False)
         self._collection = s.qdrant_collection
-        self._embed_model = s.gemini_embed_model
+        self._embed_model = "gemini-embedding-001" if s.gemini_embed_model == "text-embedding-004" else (s.gemini_embed_model or "gemini-embedding-001")
         self._genai = genai.Client(api_key=s.gemini_api_key) if s.gemini_api_key else None
         self._dim: int | None = None
 
@@ -72,7 +72,14 @@ class DualHybridStore:
             return [_hash_embed(t) for t in texts]
 
         def _call(chunk: list[str]) -> list[list[float]]:
-            resp = self._genai.models.embed_content(model=self._embed_model, contents=chunk)
+            try:
+                resp = self._genai.models.embed_content(model=self._embed_model, contents=chunk)
+            except Exception as exc:
+                if "NOT_FOUND" in str(exc) or "404" in str(exc):
+                    self._embed_model = "gemini-embedding-001"
+                    resp = self._genai.models.embed_content(model=self._embed_model, contents=chunk)
+                else:
+                    raise
             return [e.values for e in resp.embeddings]
 
         vectors: list[list[float]] = []
