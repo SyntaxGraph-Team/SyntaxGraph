@@ -93,3 +93,19 @@ def test_api_end_to_end(tmp_path: Path):
         imp = client.get(f"/api/repos/local_test/impact?node_id={first_node}")
         assert imp.status_code == 200
         assert len(imp.json()["nodes"]) >= 1
+
+        repos = client.get("/api/repos")
+        assert repos.status_code == 200
+        assert any(r["repo_id"] == "local_test" for r in repos.json()["repos"])
+
+        nd = client.get(f"/api/repos/local_test/node?node_id={first_node}")
+        assert nd.status_code == 200
+        assert "raw_code" in nd.json()
+
+        aud = client.get("/api/repos/local_test/audit")
+        assert aud.status_code == 200
+        assert "hotspots" in aud.json()
+
+        pth = client.get("/api/repos/local_test/path?source=entry&target=helper")
+        assert pth.status_code == 200
+        assert len(pth.json()["nodes"]) == 2

@@ -9,7 +9,7 @@ from .agent import build_agent
 from .auth import require_auth, verify_github_webhook
 from .config import get_settings
 from .eval import run_evaluation
-from .github_intel import summarize_github_activity, summarize_project_graph
+from .github_intel import audit_repo_graph, summarize_github_activity, summarize_project_graph
 from .ingestor import derive_repo_id, ingest_repository, sync_delta
 from .models import EvalRequest, GitHubSummaryRequest, IngestRequest, QueryRequest
 from .stores import DualHybridStore, GraphVectorStore, InMemoryHybridStore
@@ -59,6 +59,17 @@ async def health():
     return {"status": "ok", "store_mode": mode, "llm_configured": bool(s.gemini_api_key)}
 
 
+@app.get("/api/repos")
+async def list_repos(_: dict = Depends(require_auth)):
+    return {"repos": await get_store().list_repos()}
+
+
+@app.delete("/api/repos/{repo_id}")
+async def delete_repo(repo_id: str, _: dict = Depends(require_auth)):
+    await get_store().delete_repo(repo_id)
+    return {"deleted": repo_id}
+
+
 @app.post("/api/repos/ingest")
 async def ingest_repo(req: IngestRequest, _: dict = Depends(require_auth)):
     try:
@@ -70,6 +81,28 @@ async def ingest_repo(req: IngestRequest, _: dict = Depends(require_auth)):
 @app.get("/api/repos/{repo_id}/graph")
 async def repo_graph(repo_id: str, limit: int = 250, _: dict = Depends(require_auth)):
     return await get_store().get_repo_graph(repo_id, limit=limit)
+
+
+@app.get("/api/repos/{repo_id}/node")
+async def repo_node(repo_id: str, node_id: str, _: dict = Depends(require_auth)):
+    node = await get_store().get_node(repo_id, node_id)
+    if not node:
+        raise HTTPException(status_code=404, detail="Node not found")
+    return node
+
+
+@app.get("/api/repos/{repo_id}/audit")
+async def repo_audit(repo_id: str, _: dict = Depends(require_auth)):
+    try:
+        graph = await get_store().get_repo_graph(repo_id, limit=400)
+        return audit_repo_graph(repo_id, graph)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/repos/{repo_id}/path")
+async def repo_path(repo_id: str, source: str, target: str, _: dict = Depends(require_auth)):
+    return await get_store().shortest_path(repo_id, source, target)
 
 
 @app.post("/api/query")

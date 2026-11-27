@@ -45,6 +45,10 @@ class GraphVectorStore(Protocol):
     async def vector_search(self, repo_id: str, query: str, top_k: int = 5) -> list[dict]: ...
     async def graph_neighbors(self, repo_id: str, seed_ids: list[str], hops: int = 2, limit: int = 25) -> dict: ...
     async def get_repo_graph(self, repo_id: str, limit: int = 250) -> dict: ...
+    async def list_repos(self) -> list[dict]: ...
+    async def delete_repo(self, repo_id: str) -> None: ...
+    async def get_node(self, repo_id: str, node_id: str) -> dict | None: ...
+    async def shortest_path(self, repo_id: str, source_name: str, target_name: str) -> dict: ...
 
 
 class DualHybridStore:
@@ -222,6 +226,64 @@ class DualHybridStore:
             edges = [dict(r) async for r in e_res]
             return {"nodes": nodes, "edges": edges}
 
+    async def list_repos(self) -> list[dict]:
+        async with self._neo4j.session() as sess:
+            res = await sess.run(
+                """
+                MATCH (n:ASTNode)
+                RETURN n.repo_id AS repo_id,
+                       count(n) AS nodes,
+                       count(CASE WHEN n.kind = 'File' THEN 1 END) AS files
+                ORDER BY nodes DESC
+                """
+            )
+            return [dict(r) async for r in res]
+
+    async def delete_repo(self, repo_id: str) -> None:
+        async with self._neo4j.session() as sess:
+            await sess.run("MATCH (n:ASTNode {repo_id: $repo_id}) DETACH DELETE n", repo_id=repo_id)
+        if await self._qdrant.collection_exists(self._collection):
+            await self._qdrant.delete(
+                collection_name=self._collection,
+                points_selector=qmodels.FilterSelector(
+                    filter=qmodels.Filter(must=[qmodels.FieldCondition(key="repo_id", match=qmodels.MatchValue(value=repo_id))])
+                ),
+            )
+
+    async def get_node(self, repo_id: str, node_id: str) -> dict | None:
+        async with self._neo4j.session() as sess:
+            res = await sess.run(
+                """
+                MATCH (n:ASTNode {repo_id: $repo_id, node_id: $node_id})
+                RETURN n.node_id AS node_id, n.kind AS kind, n.name AS name,
+                       n.file_path AS file_path, n.start_line AS start_line,
+                       n.end_line AS end_line, n.signature AS signature,
+                       n.docstring AS docstring, n.raw_code AS raw_code
+                """,
+                repo_id=repo_id,
+                node_id=node_id,
+            )
+            rec = await res.single()
+            return dict(rec) if rec else None
+
+    async def shortest_path(self, repo_id: str, source_name: str, target_name: str) -> dict:
+        async with self._neo4j.session() as sess:
+            res = await sess.run(
+                """
+                MATCH (a:ASTNode {repo_id: $repo_id}), (b:ASTNode {repo_id: $repo_id})
+                WHERE toLower(a.name) = toLower($src) AND toLower(b.name) = toLower($tgt) AND a.node_id <> b.node_id
+                MATCH p = shortestPath((a)-[:CALLS|IMPORTS|INHERITS|CONTAINS*1..6]->(b))
+                RETURN [n IN nodes(p) | {node_id: n.node_id, name: n.name, kind: n.kind, file_path: n.file_path, start_line: n.start_line}] AS nodes,
+                       [r IN relationships(p) | {source: startNode(r).node_id, target: endNode(r).node_id, kind: type(r)}] AS edges
+                LIMIT 1
+                """,
+                repo_id=repo_id,
+                src=source_name,
+                tgt=target_name,
+            )
+            rec = await res.single()
+            return {"nodes": rec["nodes"], "edges": rec["edges"]} if rec else {"nodes": [], "edges": []}
+
     async def get_repo_graph(self, repo_id: str, limit: int = 250) -> dict:
         async with self._neo4j.session() as sess:
             n_res = await sess.run(
@@ -248,6 +310,64 @@ class DualHybridStore:
             )
             edges = [dict(r) async for r in e_res]
             return {"nodes": nodes, "edges": edges}
+
+    async def list_repos(self) -> list[dict]:
+        async with self._neo4j.session() as sess:
+            res = await sess.run(
+                """
+                MATCH (n:ASTNode)
+                RETURN n.repo_id AS repo_id,
+                       count(n) AS nodes,
+                       count(CASE WHEN n.kind = 'File' THEN 1 END) AS files
+                ORDER BY nodes DESC
+                """
+            )
+            return [dict(r) async for r in res]
+
+    async def delete_repo(self, repo_id: str) -> None:
+        async with self._neo4j.session() as sess:
+            await sess.run("MATCH (n:ASTNode {repo_id: $repo_id}) DETACH DELETE n", repo_id=repo_id)
+        if await self._qdrant.collection_exists(self._collection):
+            await self._qdrant.delete(
+                collection_name=self._collection,
+                points_selector=qmodels.FilterSelector(
+                    filter=qmodels.Filter(must=[qmodels.FieldCondition(key="repo_id", match=qmodels.MatchValue(value=repo_id))])
+                ),
+            )
+
+    async def get_node(self, repo_id: str, node_id: str) -> dict | None:
+        async with self._neo4j.session() as sess:
+            res = await sess.run(
+                """
+                MATCH (n:ASTNode {repo_id: $repo_id, node_id: $node_id})
+                RETURN n.node_id AS node_id, n.kind AS kind, n.name AS name,
+                       n.file_path AS file_path, n.start_line AS start_line,
+                       n.end_line AS end_line, n.signature AS signature,
+                       n.docstring AS docstring, n.raw_code AS raw_code
+                """,
+                repo_id=repo_id,
+                node_id=node_id,
+            )
+            rec = await res.single()
+            return dict(rec) if rec else None
+
+    async def shortest_path(self, repo_id: str, source_name: str, target_name: str) -> dict:
+        async with self._neo4j.session() as sess:
+            res = await sess.run(
+                """
+                MATCH (a:ASTNode {repo_id: $repo_id}), (b:ASTNode {repo_id: $repo_id})
+                WHERE toLower(a.name) = toLower($src) AND toLower(b.name) = toLower($tgt) AND a.node_id <> b.node_id
+                MATCH p = shortestPath((a)-[:CALLS|IMPORTS|INHERITS|CONTAINS*1..6]->(b))
+                RETURN [n IN nodes(p) | {node_id: n.node_id, name: n.name, kind: n.kind, file_path: n.file_path, start_line: n.start_line}] AS nodes,
+                       [r IN relationships(p) | {source: startNode(r).node_id, target: endNode(r).node_id, kind: type(r)}] AS edges
+                LIMIT 1
+                """,
+                repo_id=repo_id,
+                src=source_name,
+                tgt=target_name,
+            )
+            rec = await res.single()
+            return {"nodes": rec["nodes"], "edges": rec["edges"]} if rec else {"nodes": [], "edges": []}
 
 
 class InMemoryHybridStore:
@@ -362,3 +482,59 @@ class InMemoryHybridStore:
             if e.repo_id == repo_id and e.source_id in ids and e.target_id in ids
         ]
         return {"nodes": nodes, "edges": edges}
+
+    async def list_repos(self) -> list[dict]:
+        counts: dict[str, dict[str, int]] = defaultdict(lambda: {"nodes": 0, "files": 0})
+        for n in self.nodes.values():
+            counts[n.repo_id]["nodes"] += 1
+            if n.kind == "File":
+                counts[n.repo_id]["files"] += 1
+        return [{"repo_id": rid, **c} for rid, c in sorted(counts.items(), key=lambda x: x[1]["nodes"], reverse=True)]
+
+    async def delete_repo(self, repo_id: str) -> None:
+        removed = {nid for nid, n in self.nodes.items() if n.repo_id == repo_id}
+        for nid in removed:
+            self.nodes.pop(nid, None)
+            self.vectors.pop(nid, None)
+        self.edges = [e for e in self.edges if e.repo_id != repo_id]
+
+    async def get_node(self, repo_id: str, node_id: str) -> dict | None:
+        n = self.nodes.get(node_id)
+        if not n or n.repo_id != repo_id:
+            return None
+        return asdict(n)
+
+    async def shortest_path(self, repo_id: str, source_name: str, target_name: str) -> dict:
+        src_ids = [n.node_id for n in self.nodes.values() if n.repo_id == repo_id and n.name.lower() == source_name.lower()]
+        tgt_ids = {n.node_id for n in self.nodes.values() if n.repo_id == repo_id and n.name.lower() == target_name.lower()}
+        if not src_ids or not tgt_ids:
+            return {"nodes": [], "edges": []}
+
+        adj: dict[str, list[tuple[str, str]]] = defaultdict(list)
+        for e in self.edges:
+            if e.repo_id == repo_id:
+                adj[e.source_id].append((e.target_id, e.kind))
+
+        queue: list[tuple[str, list[str], list[dict]]] = [(sid, [sid], []) for sid in src_ids]
+        visited = set(src_ids)
+        while queue:
+            cur, path_n, path_e = queue.pop(0)
+            if cur in tgt_ids and len(path_n) > 1:
+                nodes = [
+                    {
+                        "node_id": self.nodes[nid].node_id,
+                        "name": self.nodes[nid].name,
+                        "kind": self.nodes[nid].kind,
+                        "file_path": self.nodes[nid].file_path,
+                        "start_line": self.nodes[nid].start_line,
+                    }
+                    for nid in path_n
+                ]
+                return {"nodes": nodes, "edges": path_e}
+            if len(path_n) >= 7:
+                continue
+            for nxt, kind in adj.get(cur, ()):
+                if nxt not in visited:
+                    visited.add(nxt)
+                    queue.append((nxt, [*path_n, nxt], [*path_e, {"source": cur, "target": nxt, "kind": kind}]))
+        return {"nodes": [], "edges": []}

@@ -25,6 +25,17 @@ export interface ASTNodeItem {
   signature?: string;
 }
 
+export interface NodeDetail extends ASTNodeItem {
+  docstring?: string;
+  raw_code?: string;
+}
+
+export interface RepoInfo {
+  repo_id: string;
+  nodes: number;
+  files: number;
+}
+
 export interface GraphData {
   nodes: ASTNodeItem[];
   edges: Array<{ source: string; target: string; kind: string }>;
@@ -52,6 +63,13 @@ export interface RepoSummaryResult {
   summary: string;
 }
 
+export interface AuditResult {
+  repo_id: string;
+  cycles: string[][];
+  orphan_symbols: Array<{ node_id: string; name: string; kind: string; file_path: string; start_line: number }>;
+  hotspots: Array<{ node_id: string; name: string; kind: string; file_path: string; fan_in: number; fan_out: number }>;
+}
+
 export interface GitHubSummaryResult {
   repo: string;
   kind: "commits" | "prs";
@@ -61,6 +79,9 @@ export interface GitHubSummaryResult {
 
 export const api = {
   health: () => req<{ status: string; store_mode: string; llm_configured: boolean }>("/health"),
+  listRepos: (token?: string) => req<{ repos: RepoInfo[] }>("/api/repos", {}, token),
+  deleteRepo: (repo_id: string, token?: string) =>
+    req<{ deleted: string }>(`/api/repos/${encodeURIComponent(repo_id)}`, { method: "DELETE" }, token),
   ingest: (repo_url: string, repo_id?: string, token?: string) =>
     req<{ repo_id: string; files_parsed: number; nodes_indexed: number; edges_indexed: number; latency_ms: number }>(
       "/api/repos/ingest",
@@ -68,8 +89,13 @@ export const api = {
       token
     ),
   graph: (repo_id: string, token?: string) => req<GraphData>(`/api/repos/${encodeURIComponent(repo_id)}/graph`, {}, token),
+  nodeDetail: (repo_id: string, node_id: string, token?: string) =>
+    req<NodeDetail>(`/api/repos/${encodeURIComponent(repo_id)}/node?node_id=${encodeURIComponent(node_id)}`, {}, token),
   impact: (repo_id: string, node_id: string, hops = 2, token?: string) =>
     req<GraphData>(`/api/repos/${encodeURIComponent(repo_id)}/impact?node_id=${encodeURIComponent(node_id)}&hops=${hops}`, {}, token),
+  audit: (repo_id: string, token?: string) => req<AuditResult>(`/api/repos/${encodeURIComponent(repo_id)}/audit`, {}, token),
+  tracePath: (repo_id: string, source: string, target: string, token?: string) =>
+    req<GraphData>(`/api/repos/${encodeURIComponent(repo_id)}/path?source=${encodeURIComponent(source)}&target=${encodeURIComponent(target)}`, {}, token),
   summarizeRepo: (repo_id: string, token?: string) =>
     req<RepoSummaryResult>(`/api/repos/${encodeURIComponent(repo_id)}/summarize`, { method: "POST" }, token),
   summarizeGithub: (repo_url: string, kind: "commits" | "prs", limit = 5, token?: string) =>

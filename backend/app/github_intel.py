@@ -120,3 +120,69 @@ async def summarize_project_graph(repo_id: str, graph: dict) -> dict:
     )
     summary = await _gemini_summarize(prompt, fallback)
     return {"repo_id": repo_id, "kind_counts": kind_counts, "edge_counts": edge_counts, "hubs": hubs, "summary": summary}
+
+
+def audit_repo_graph(repo_id: str, graph: dict) -> dict:
+    nodes = graph.get("nodes", [])
+    edges = graph.get("edges", [])
+    if not nodes:
+        raise ValueError(f"No AST nodes found for repo '{repo_id}'.")
+
+    by_id = {n["node_id"]: n for n in nodes}
+    in_deg: Counter[str] = Counter()
+    out_deg: Counter[str] = Counter()
+    adj: dict[str, list[str]] = {}
+    for e in edges:
+        if e["kind"] in {"CALLS", "IMPORTS", "INHERITS"}:
+            out_deg[e["source"]] += 1
+            in_deg[e["target"]] += 1
+            adj.setdefault(e["source"], []).append(e["target"])
+
+    # Detect directed cycles (circular imports / call recursion) via bounded 3-color DFS
+    state: dict[str, int] = {}
+    cycles: list[list[str]] = []
+    stack: list[str] = []
+
+    def _dfs(u: str) -> None:
+        if len(cycles) >= 8:
+            return
+        state[u] = 1
+        stack.append(u)
+        for v in adj.get(u, ()):
+            if state.get(v, 0) == 1 and v in stack:
+                idx = stack.index(v)
+                cyc = [by_id[x]["name"] for x in stack[idx:] + [v] if x in by_id]
+                if len(cyc) >= 2:
+                    cycles.append(cyc)
+            elif state.get(v, 0) == 0:
+                _dfs(v)
+        stack.pop()
+        state[u] = 2
+
+    for nid in by_id:
+        if state.get(nid, 0) == 0:
+            _dfs(nid)
+
+    ignore_prefixes = ("test_", "main", "__", "handle_")
+    orphans = [
+        {"node_id": n["node_id"], "name": n["name"], "kind": n["kind"], "file_path": n["file_path"], "start_line": n["start_line"]}
+        for n in nodes
+        if n["kind"] in {"Function", "Class", "Interface"}
+        and in_deg[n["node_id"]] == 0
+        and not n["name"].startswith(ignore_prefixes)
+    ][:15]
+
+    hotspots = [
+        {
+            "node_id": nid,
+            "name": by_id[nid]["name"],
+            "kind": by_id[nid]["kind"],
+            "file_path": by_id[nid]["file_path"],
+            "fan_in": in_deg[nid],
+            "fan_out": out_deg[nid],
+        }
+        for nid in sorted(by_id, key=lambda k: in_deg[k] + out_deg[k], reverse=True)[:8]
+        if in_deg[nid] + out_deg[nid] > 0
+    ]
+
+    return {"repo_id": repo_id, "cycles": cycles, "orphan_symbols": orphans, "hotspots": hotspots}
