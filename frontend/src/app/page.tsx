@@ -782,8 +782,8 @@ export default function HomePage() {
       </div>
 
       <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.07] pt-4 text-[11px] text-zinc-500">
-        <span>SyntaxGraph Team · Krishan Kant Sharma, Divanshu Tiwari, Sahil, Deepak Baghel</span>
-        <span>Dept. of CSE · GL Bajaj Group of Institutions, Mathura</span>
+        <span>SyntaxGraph Team</span>
+        <span>Krishan Kant Sharma · Divanshu Tiwari · Sahil · Deepak Baghel</span>
       </footer>
     </main>
   );

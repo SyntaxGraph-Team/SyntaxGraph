@@ -35,7 +35,7 @@ export function LoginView({ onDemoEnter }: { onDemoEnter?: () => void }) {
         <div className="animate-fade-up space-y-6 lg:col-span-7">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 font-mono text-[11px] text-zinc-300">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-            SyntaxGraph Team · GL Bajaj CSE
+            SyntaxGraph Team
           </div>
 
           <div className="space-y-3">
