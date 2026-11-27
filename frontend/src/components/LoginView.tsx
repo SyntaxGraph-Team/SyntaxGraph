@@ -35,9 +35,12 @@ export function LoginView({ onDemoEnter }: { onDemoEnter?: () => void }) {
 
       {/* Floating Clay Header */}
       <header className="clay mx-auto mb-10 flex max-w-6xl items-center justify-between px-6 py-4">
-        <div>
-          <span className="text-[11px] font-bold uppercase tracking-widest text-indigo-500">Codebase Intelligence</span>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">SyntaxGraph</h1>
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="SyntaxGraph" className="h-10 w-10 rounded-xl shadow-sm" />
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-widest text-indigo-500">Codebase Intelligence</span>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">SyntaxGraph</h1>
+          </div>
         </div>
         <button
           type="button"

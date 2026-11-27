@@ -350,9 +350,12 @@ export default function HomePage() {
       {/* Mobile Compact Header */}
       <header className="clay mb-5 p-4 lg:hidden">
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500">Codebase Intelligence</p>
-            <h1 className="text-lg font-bold text-slate-900">SyntaxGraph</h1>
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="SyntaxGraph" className="h-9 w-9 rounded-xl shadow-sm" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500">Codebase Intelligence</p>
+              <h1 className="text-lg font-bold text-slate-900">SyntaxGraph</h1>
+            </div>
           </div>
           {firebaseConfigured && user ? (
             <button onClick={signOutUser} className="clay-btn-soft flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold">
@@ -382,9 +385,12 @@ export default function HomePage() {
         {/* Spacious Clay Left Sidebar */}
         <aside className="clay sticky top-6 hidden w-72 shrink-0 flex-col justify-between gap-6 p-6 lg:flex">
           <div className="space-y-6">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-indigo-500">Codebase Intelligence</p>
-              <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900">SyntaxGraph</h1>
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="SyntaxGraph" className="h-11 w-11 rounded-2xl shadow-sm" />
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-indigo-500">Codebase Intelligence</p>
+                <h1 className="text-xl font-extrabold tracking-tight text-slate-900">SyntaxGraph</h1>
+              </div>
             </div>
 
             {/* Sidebar Navigation */}
