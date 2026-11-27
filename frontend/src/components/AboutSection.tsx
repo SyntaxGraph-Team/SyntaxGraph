@@ -1,7 +1,6 @@
 "use client";
 
 import { Github } from "lucide-react";
-import { CoffeeSection } from "@/components/CoffeeSection";
 
 const TEAM_MEMBERS: Array<{ name: string; image: string; tint: string; github: string; handle: string }> = [
   {
@@ -82,8 +81,6 @@ export function AboutSection({ compact = false }: { compact?: boolean }) {
           ))}
         </div>
       </div>
-
-      {!compact && <CoffeeSection />}
     </section>
   );
 }

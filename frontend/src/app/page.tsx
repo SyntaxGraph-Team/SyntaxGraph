@@ -12,7 +12,6 @@ import {
   type GitHubUserRepo,
   type GraphData,
   type NodeDetail,
-  type QueryResult,
   type RepoInfo,
   type RepoSummaryResult,
 } from "@/lib/api";
@@ -21,6 +20,7 @@ import { GraphView } from "@/components/GraphView";
 import { LoginView } from "@/components/LoginView";
 import { AboutSection } from "@/components/AboutSection";
 import { CoffeeSection } from "@/components/CoffeeSection";
+import { ChatView, type ChatTurn } from "@/components/ChatView";
 
 type TabId = "explorer" | "chat" | "github" | "eval" | "about" | "coffee";
 
@@ -31,12 +31,6 @@ const TABS: Array<{ id: TabId; label: string; hint: string }> = [
   { id: "eval", label: "Benchmarks", hint: "Accuracy & speed" },
   { id: "about", label: "Team", hint: "SyntaxGraph Team" },
   { id: "coffee", label: "Buy Us a Coffee", hint: "Support the project" },
-];
-
-const SAMPLE_QUERIES = [
-  "How do the main files connect to each other?",
-  "Where are logins and security checks handled?",
-  "Which functions depend on each other across files?",
 ];
 
 const METRIC_LABELS: Record<string, { title: string; subtitle: string; tint: string }> = {
@@ -115,9 +109,7 @@ export default function HomePage() {
   const [pathSrc, setPathSrc] = useState("");
   const [pathTgt, setPathTgt] = useState("");
 
-  const [query, setQuery] = useState(SAMPLE_QUERIES[0]);
-  const [queryRes, setQueryRes] = useState<QueryResult | null>(null);
-  const [history, setHistory] = useState<string[]>([]);
+  const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
 
   const [ghKind, setGhKind] = useState<"commits" | "prs">("commits");
   const [ghLimit, setGhLimit] = useState(5);
@@ -293,13 +285,13 @@ export default function HomePage() {
     });
   }
 
-  function handleQuery(e: React.FormEvent) {
-    e.preventDefault();
-    if (!query.trim()) return;
+  function handleSendChat(promptText: string) {
+    const userTurn: ChatTurn = { id: `u-${Date.now()}`, role: "user", text: promptText };
+    setChatTurns((prev) => [...prev, userTurn]);
     runTask(async () => {
-      const res = await api.query(repoId, query, token);
-      setQueryRes(res);
-      setHistory((prev) => [query, ...prev.filter((q) => q !== query)].slice(0, 5));
+      const res = await api.query(repoId, promptText, token);
+      const aiTurn: ChatTurn = { id: `a-${Date.now()}`, role: "assistant", text: res.answer, result: res };
+      setChatTurns((prev) => [...prev, aiTurn]);
     });
   }
 
@@ -763,92 +755,20 @@ export default function HomePage() {
             </section>
           )}
 
-          {/* TAB 2: ASK AI */}
+          {/* TAB 2: ASK AI (GEMINI / CHATGPT FORMAT) */}
           {tab === "chat" && (
-            <section key="chat" className="animate-tab space-y-7">
-              <div className="clay p-7 sm:p-8">
-                <span className="clay-mint inline-block px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-800">
-                  Ask AI
-                </span>
-                <h2 className="mt-2.5 text-2xl font-bold text-slate-900">Ask anything about your repository</h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  Get clear answers based on your actual files, complete with clickable file and line links.
-                </p>
-
-                <form onSubmit={handleQuery} className="mt-6 flex flex-wrap gap-3">
-                  <input
-                    value={repoId}
-                    onChange={(e) => setRepoId(e.target.value)}
-                    placeholder="Project ID"
-                    className="clay-well w-52 px-4 py-3 font-mono text-xs text-slate-800 outline-none"
-                  />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Ask a question in plain English..."
-                    className="clay-well min-w-[240px] flex-1 px-4 py-3 text-sm text-slate-800 outline-none"
-                  />
-                  <button disabled={busy} className="clay-btn inline-flex items-center gap-2 px-6 py-3 text-xs font-semibold disabled:opacity-50">
-                    {busy ? "Searching..." : "Ask AI"}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </button>
-                </form>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {[...SAMPLE_QUERIES, ...history.filter((h) => !SAMPLE_QUERIES.includes(h))].slice(0, 6).map((q) => (
-                    <button key={q} onClick={() => setQuery(q)} className="clay-btn-soft px-3.5 py-1.5 text-xs font-medium">
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
-                {["1. Read Question", "2. Find Matching Code", "3. Follow Links", "4. Write Answer"].map((step) => (
-                  <div
-                    key={step}
-                    className={`px-4 py-3.5 text-xs font-bold transition ${
-                      queryRes || busy ? "clay-mint text-emerald-900" : "clay text-slate-500"
-                    }`}
-                  >
-                    {step}
-                  </div>
-                ))}
-              </div>
-
-              {queryRes && (
-                <div className="grid gap-6 lg:grid-cols-3">
-                  <div className="clay animate-tab space-y-4 p-7 lg:col-span-2">
-                    <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-800">{queryRes.answer}</pre>
-                    <div className="border-t border-indigo-100 pt-4">
-                      <div className="mb-2.5 text-xs font-bold text-slate-600">Referenced Files (click to inspect)</div>
-                      <div className="flex flex-wrap gap-2">
-                        {queryRes.citations.map((c) => (
-                          <button
-                            key={c.node_id}
-                            onClick={() => {
-                              handleSelectNode(c);
-                              setTab("explorer");
-                            }}
-                            className="clay-btn-soft px-3 py-1.5 font-mono text-[11px] font-semibold text-indigo-700"
-                          >
-                            {c.file_path}:{c.start_line}-{c.end_line} · {c.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="clay-lavender animate-slide-right space-y-2.5 p-6">
-                    <div className="text-xs font-bold text-indigo-900">How We Found This</div>
-                    {queryRes.trace.map((t, i) => (
-                      <div key={i} className="rounded-2xl bg-white/80 px-3.5 py-2.5 font-mono text-[11px] text-slate-700 shadow-sm">
-                        {t}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </section>
+            <ChatView
+              repoId={repoId}
+              onRepoIdChange={setRepoId}
+              turns={chatTurns}
+              busy={busy}
+              onSend={handleSendChat}
+              onClear={() => setChatTurns([])}
+              onInspectCitation={(c) => {
+                handleSelectNode(c);
+                setTab("explorer");
+              }}
+            />
           )}
 
           {/* TAB 3: RECENT UPDATES */}
