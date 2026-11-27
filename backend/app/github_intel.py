@@ -246,3 +246,98 @@ def audit_repo_graph(repo_id: str, graph: dict) -> dict:
     ]
 
     return {"repo_id": repo_id, "cycles": cycles, "orphan_symbols": orphans, "hotspots": hotspots}
+
+
+def _safe_id(raw: str, idx: int) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9_]", "_", raw)
+    return f"n{idx}_{cleaned[:24]}"
+
+
+def generate_flowchart(repo_id: str, graph: dict) -> dict:
+    nodes = graph.get("nodes", [])
+    edges = graph.get("edges", [])
+    if not nodes:
+        raise ValueError(f"No mapped code found for '{repo_id}'. Map the repository first.")
+
+    dep_edges = [e for e in edges if e["kind"] in {"CALLS", "IMPORTS", "INHERITS"}]
+    if not dep_edges:
+        dep_edges = [e for e in edges if e["kind"] == "CONTAINS"]
+
+    by_id = {n["node_id"]: n for n in nodes}
+    deg: Counter[str] = Counter()
+    for e in dep_edges:
+        deg[e["source"]] += 1
+        deg[e["target"]] += 1
+
+    # Prioritize connected non-method symbols/files up to 20 nodes for a clean readable diagram
+    ranked_ids = [
+        nid for nid, _ in deg.most_common(40) if nid in by_id and by_id[nid]["kind"] in {"File", "Class", "Interface", "Function"}
+    ][:20]
+    if not ranked_ids:
+        ranked_ids = [n["node_id"] for n in nodes[:16]]
+
+    keep = set(ranked_ids)
+    kept_edges = [e for e in dep_edges if e["source"] in keep and e["target"] in keep][:32]
+    id_map = {nid: _safe_id(by_id[nid]["name"], i) for i, nid in enumerate(ranked_ids)}
+
+    # Compute topological layer (0..4) for left-to-right flow
+    in_adj: dict[str, list[str]] = {nid: [] for nid in ranked_ids}
+    for e in kept_edges:
+        in_adj.setdefault(e["target"], []).append(e["source"])
+
+    layer_cache: dict[str, int] = {}
+
+    def _layer(nid: str, visiting: set[str]) -> int:
+        if nid in layer_cache:
+            return layer_cache[nid]
+        if nid in visiting:
+            return 0
+        visiting.add(nid)
+        preds = [p for p in in_adj.get(nid, ()) if p != nid]
+        lvl = (max((_layer(p, visiting) for p in preds), default=-1) + 1) if preds else 0
+        visiting.remove(nid)
+        layer_cache[nid] = min(lvl, 4)
+        return layer_cache[nid]
+
+    for nid in ranked_ids:
+        _layer(nid, set())
+
+    out_nodes = [
+        {
+            "id": id_map[nid],
+            "node_id": nid,
+            "label": by_id[nid]["name"],
+            "kind": by_id[nid]["kind"],
+            "file_path": by_id[nid]["file_path"],
+            "group": by_id[nid]["file_path"].split("/")[0] if "/" in by_id[nid]["file_path"] else "root",
+            "layer": layer_cache.get(nid, 0),
+        }
+        for nid in ranked_ids
+    ]
+
+    out_edges = [
+        {
+            "source": id_map[e["source"]],
+            "target": id_map[e["target"]],
+            "kind": e["kind"],
+            "label": e["kind"].lower(),
+        }
+        for e in kept_edges
+        if e["source"] in id_map and e["target"] in id_map and e["source"] != e["target"]
+    ]
+
+    lines = ["flowchart LR"]
+    groups: dict[str, list[dict]] = {}
+    for n in out_nodes:
+        groups.setdefault(n["group"], []).append(n)
+    for grp, grp_nodes in groups.items():
+        safe_grp = re.sub(r"[^a-zA-Z0-9_]", "_", grp)
+        lines.append(f'  subgraph sg_{safe_grp}["{grp}"]')
+        for n in grp_nodes:
+            safe_lbl = n["label"].replace('"', "'")
+            lines.append(f'    {n["id"]}["{safe_lbl}"]')
+        lines.append("  end")
+    for e in out_edges:
+        lines.append(f'  {e["source"]} -->|{e["label"]}| {e["target"]}')
+
+    return {"repo_id": repo_id, "mermaid": "\n".join(lines), "nodes": out_nodes, "edges": out_edges}

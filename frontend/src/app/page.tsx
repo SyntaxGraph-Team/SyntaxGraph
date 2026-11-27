@@ -8,6 +8,7 @@ import {
   type ASTNodeItem,
   type AuditResult,
   type EvalResult,
+  type FlowchartResult,
   type GitHubSummaryResult,
   type GitHubUserRepo,
   type GraphData,
@@ -21,12 +22,14 @@ import { LoginView } from "@/components/LoginView";
 import { AboutSection } from "@/components/AboutSection";
 import { CoffeeSection } from "@/components/CoffeeSection";
 import { ChatView, type ChatTurn } from "@/components/ChatView";
+import { FlowchartView } from "@/components/FlowchartView";
 
-type TabId = "explorer" | "chat" | "github" | "eval" | "about" | "coffee";
+type TabId = "explorer" | "chat" | "flowchart" | "github" | "eval" | "about" | "coffee";
 
 const TABS: Array<{ id: TabId; label: string; hint: string }> = [
   { id: "explorer", label: "Code Map", hint: "Explore files & links" },
   { id: "chat", label: "Ask AI", hint: "Plain-English answers" },
+  { id: "flowchart", label: "Flowchart", hint: "Mermaid & PNG diagram" },
   { id: "github", label: "Recent Updates", hint: "Commits & Pull Requests" },
   { id: "eval", label: "Benchmarks", hint: "Accuracy & speed" },
   { id: "about", label: "Team", hint: "SyntaxGraph Team" },
@@ -116,6 +119,7 @@ export default function HomePage() {
   const [ghRes, setGhRes] = useState<GitHubSummaryResult | null>(null);
 
   const [evalRes, setEvalRes] = useState<EvalResult | null>(null);
+  const [flowchartRes, setFlowchartRes] = useState<FlowchartResult | null>(null);
 
   useEffect(() => {
     api.health().then(setHealth).catch(() => null);
@@ -308,6 +312,15 @@ export default function HomePage() {
   function handleEval() {
     runTask(async () => {
       setEvalRes(await api.eval(false, false, token));
+    });
+  }
+
+  function handleFlowchart() {
+    if (!repoId.trim()) return;
+    runTask(async () => {
+      setStatus("Building architecture flowchart...");
+      setFlowchartRes(await api.flowchart(repoId.trim(), token));
+      setStatus("Flowchart ready — export as Mermaid or PNG.");
     });
   }
 
@@ -590,6 +603,17 @@ export default function HomePage() {
                   <button type="button" onClick={handleAudit} disabled={busy} className="clay-btn-soft px-5 py-2.5 text-xs font-semibold text-rose-700">
                     Check Code Health
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTab("flowchart");
+                      handleFlowchart();
+                    }}
+                    disabled={busy}
+                    className="clay-btn-soft px-5 py-2.5 text-xs font-semibold text-indigo-700"
+                  >
+                    Flowchart
+                  </button>
                 </div>
               </form>
 
@@ -768,6 +792,17 @@ export default function HomePage() {
                 handleSelectNode(c);
                 setTab("explorer");
               }}
+            />
+          )}
+
+          {/* TAB 2B: FLOWCHART */}
+          {tab === "flowchart" && (
+            <FlowchartView
+              repoId={repoId}
+              onRepoIdChange={setRepoId}
+              data={flowchartRes}
+              busy={busy}
+              onGenerate={handleFlowchart}
             />
           )}
 

@@ -131,3 +131,8 @@ def test_api_end_to_end(tmp_path: Path):
         gh_r = client.get("/api/github/repos")
         assert gh_r.status_code == 200
         assert gh_r.json() == {"repos": []}
+
+        fc = client.get("/api/repos/local_test/flowchart")
+        assert fc.status_code == 200
+        assert fc.json()["mermaid"].startswith("flowchart LR")
+        assert len(fc.json()["nodes"]) >= 2

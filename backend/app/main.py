@@ -10,7 +10,7 @@ from .agent import build_agent
 from .auth import require_auth, verify_github_webhook
 from .config import get_settings
 from .eval import run_evaluation
-from .github_intel import audit_repo_graph, list_user_github_repos, summarize_github_activity, summarize_project_graph
+from .github_intel import audit_repo_graph, generate_flowchart, list_user_github_repos, summarize_github_activity, summarize_project_graph
 from .ingestor import derive_repo_id, ingest_repository, sync_delta
 from .models import EvalRequest, GitHubSummaryRequest, IngestRequest, QueryRequest
 from .stores import DualHybridStore, GraphVectorStore, InMemoryHybridStore
@@ -113,6 +113,15 @@ async def repo_audit(repo_id: str, _: dict = Depends(require_auth)):
 @app.get("/api/repos/{repo_id}/path")
 async def repo_path(repo_id: str, source: str, target: str, _: dict = Depends(require_auth)):
     return await get_store().shortest_path(repo_id, source, target)
+
+
+@app.get("/api/repos/{repo_id}/flowchart")
+async def repo_flowchart(repo_id: str, _: dict = Depends(require_auth)):
+    try:
+        graph = await get_store().get_repo_graph(repo_id, limit=400)
+        return generate_flowchart(repo_id, graph)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.post("/api/query")

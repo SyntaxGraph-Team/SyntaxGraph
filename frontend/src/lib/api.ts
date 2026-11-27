@@ -80,6 +80,13 @@ export interface AuditResult {
   hotspots: Array<{ node_id: string; name: string; kind: string; file_path: string; fan_in: number; fan_out: number }>;
 }
 
+export interface FlowchartResult {
+  repo_id: string;
+  mermaid: string;
+  nodes: Array<{ id: string; node_id: string; label: string; kind: string; file_path: string; group: string; layer: number }>;
+  edges: Array<{ source: string; target: string; kind: string; label: string }>;
+}
+
 export interface GitHubSummaryResult {
   repo: string;
   kind: "commits" | "prs";
@@ -109,6 +116,7 @@ export const api = {
   impact: (repo_id: string, node_id: string, hops = 2, token?: string) =>
     req<GraphData>(`/api/repos/${encodeURIComponent(repo_id)}/impact?node_id=${encodeURIComponent(node_id)}&hops=${hops}`, {}, token),
   audit: (repo_id: string, token?: string) => req<AuditResult>(`/api/repos/${encodeURIComponent(repo_id)}/audit`, {}, token),
+  flowchart: (repo_id: string, token?: string) => req<FlowchartResult>(`/api/repos/${encodeURIComponent(repo_id)}/flowchart`, {}, token),
   tracePath: (repo_id: string, source: string, target: string, token?: string) =>
     req<GraphData>(`/api/repos/${encodeURIComponent(repo_id)}/path?source=${encodeURIComponent(source)}&target=${encodeURIComponent(target)}`, {}, token),
   summarizeRepo: (repo_id: string, token?: string) =>
