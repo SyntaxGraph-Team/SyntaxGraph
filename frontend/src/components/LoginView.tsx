@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, GitBranch, Github, Info } from "lucide-react";
-import { firebaseConfigured, signInProvider } from "@/lib/firebase";
+import { consumeRedirectError, firebaseConfigured, formatAuthError, signInProvider } from "@/lib/firebase";
 import { AboutSection } from "@/components/AboutSection";
 
 export function LoginView({ onDemoEnter }: { onDemoEnter?: () => void }) {
@@ -10,20 +10,19 @@ export function LoginView({ onDemoEnter }: { onDemoEnter?: () => void }) {
   const [loading, setLoading] = useState<"google" | "github" | null>(null);
   const [showAbout, setShowAbout] = useState(false);
 
+  useEffect(() => {
+    consumeRedirectError().then((msg) => {
+      if (msg) setError(msg);
+    });
+  }, []);
+
   async function handleLogin(provider: "google" | "github") {
     setError("");
     setLoading(provider);
     try {
       await signInProvider(provider);
     } catch (err: unknown) {
-      const msg = (err as Error)?.message || "Authentication failed";
-      if (msg.includes("unauthorized-domain")) {
-        setError("Add your deployment domain (e.g. syntaxgraph.vercel.app) under Firebase Console -> Authentication -> Settings -> Authorized domains.");
-      } else if (msg.includes("popup-blocked")) {
-        setError("Browser popup was blocked. Allow popups for this site or disable redirect-blocking extensions and retry.");
-      } else {
-        setError(msg);
-      }
+      setError(formatAuthError(err));
     } finally {
       setLoading(null);
     }
