@@ -50,3 +50,9 @@ class QueryRequest(BaseModel):
 class EvalRequest(BaseModel):
     use_live_stores: bool = False
     use_llm: bool = False
+
+
+class GitHubSummaryRequest(BaseModel):
+    repo_url: str
+    kind: Literal["commits", "prs"] = "commits"
+    limit: int = 5

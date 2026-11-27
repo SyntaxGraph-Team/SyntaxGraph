@@ -84,3 +84,12 @@ def test_api_end_to_end(tmp_path: Path):
         ev = client.post("/api/eval/run", json={"use_live_stores": False, "use_llm": False})
         assert ev.status_code == 200
         assert len(ev.json()["cases"]) == 10
+
+        summ = client.post("/api/repos/local_test/summarize")
+        assert summ.status_code == 200
+        assert summ.json()["repo_id"] == "local_test"
+
+        first_node = g.json()["nodes"][0]["node_id"]
+        imp = client.get(f"/api/repos/local_test/impact?node_id={first_node}")
+        assert imp.status_code == 200
+        assert len(imp.json()["nodes"]) >= 1

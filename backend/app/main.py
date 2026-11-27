@@ -9,8 +9,9 @@ from .agent import build_agent
 from .auth import require_auth, verify_github_webhook
 from .config import get_settings
 from .eval import run_evaluation
+from .github_intel import summarize_github_activity, summarize_project_graph
 from .ingestor import derive_repo_id, ingest_repository, sync_delta
-from .models import EvalRequest, IngestRequest, QueryRequest
+from .models import EvalRequest, GitHubSummaryRequest, IngestRequest, QueryRequest
 from .stores import DualHybridStore, GraphVectorStore, InMemoryHybridStore
 
 _store: GraphVectorStore | None = None
@@ -44,6 +45,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/")
+async def root():
+    return {"service": "SyntaxGraph API", "status": "ok", "health": "/health", "docs": "/docs"}
 
 
 @app.get("/health")
@@ -121,3 +127,25 @@ async def github_webhook(request: Request, body: bytes = Depends(verify_github_w
 async def run_eval(req: EvalRequest, _: dict = Depends(require_auth)):
     target_store = get_store() if req.use_live_stores else InMemoryHybridStore()
     return await run_evaluation(target_store, use_llm=req.use_llm)
+
+
+@app.post("/api/repos/{repo_id}/summarize")
+async def summarize_repo(repo_id: str, _: dict = Depends(require_auth)):
+    try:
+        graph = await get_store().get_repo_graph(repo_id, limit=300)
+        return await summarize_project_graph(repo_id, graph)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/repos/{repo_id}/impact")
+async def symbol_impact(repo_id: str, node_id: str, hops: int = 2, _: dict = Depends(require_auth)):
+    return await get_store().graph_neighbors(repo_id, [node_id], hops=hops, limit=40)
+
+
+@app.post("/api/github/summarize")
+async def github_summarize(req: GitHubSummaryRequest, _: dict = Depends(require_auth)):
+    try:
+        return await summarize_github_activity(req.repo_url, req.kind, req.limit)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
