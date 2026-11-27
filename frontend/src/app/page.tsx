@@ -16,7 +16,7 @@ import {
   type RepoInfo,
   type RepoSummaryResult,
 } from "@/lib/api";
-import { firebaseConfigured, getFirebaseAuth, getStoredGithubToken, signOutUser } from "@/lib/firebase";
+import { firebaseConfigured, getFirebaseAuth, getGithubUid, getStoredGithubToken, signOutUser } from "@/lib/firebase";
 import { GraphView } from "@/components/GraphView";
 import { LoginView } from "@/components/LoginView";
 import { AboutSection } from "@/components/AboutSection";
@@ -125,20 +125,37 @@ export default function HomePage() {
       setAuthReady(true);
       return;
     }
-    return onAuthStateChanged(auth, async (u) => {
+
+    const loadUserRepos = async (u: User | null, tok?: string) => {
+      if (!u) return;
+      const gTok = getStoredGithubToken();
+      const gUid = getGithubUid(u);
+      setGhToken(gTok);
+      if (gTok || gUid) {
+        api.listGithubRepos(tok, gTok, gUid).then((r) => setGhRepos(r.repos)).catch(() => null);
+      }
+    };
+
+    const onGhToken = () => {
+      const u = auth.currentUser;
+      if (u) u.getIdToken().then((tok) => loadUserRepos(u, tok));
+    };
+    window.addEventListener("sg-github-token", onGhToken);
+
+    const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       const tok = u ? await u.getIdToken() : undefined;
-      const gTok = getStoredGithubToken();
       setToken(tok);
-      setGhToken(gTok);
       setAuthReady(true);
       if (u) {
         api.listRepos(tok).then((r) => setRepos(r.repos)).catch(() => null);
-        if (gTok) {
-          api.listGithubRepos(tok, gTok).then((r) => setGhRepos(r.repos)).catch(() => null);
-        }
+        loadUserRepos(u, tok);
       }
     });
+    return () => {
+      window.removeEventListener("sg-github-token", onGhToken);
+      unsub();
+    };
   }, []);
 
   async function refreshRepos(tok = token) {
@@ -152,13 +169,14 @@ export default function HomePage() {
 
   async function refreshGithubRepos() {
     const gTok = ghToken || getStoredGithubToken();
-    if (!gTok) return;
+    const gUid = getGithubUid(user);
+    if (!gTok && !gUid) return;
     setGhToken(gTok);
     try {
-      const r = await api.listGithubRepos(token, gTok);
+      const r = await api.listGithubRepos(token, gTok, gUid);
       setGhRepos(r.repos);
-    } catch {
-      // ignore
+    } catch (err) {
+      setStatus(`Could not load GitHub repositories: ${(err as Error).message}`);
     }
   }
 

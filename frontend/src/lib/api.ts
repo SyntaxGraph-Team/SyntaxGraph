@@ -90,8 +90,10 @@ export interface GitHubSummaryResult {
 export const api = {
   health: () => req<{ status: string; store_mode: string; llm_configured: boolean }>("/health"),
   listRepos: (token?: string) => req<{ repos: RepoInfo[] }>("/api/repos", {}, token),
-  listGithubRepos: (token?: string, githubToken?: string) =>
-    req<{ repos: GitHubUserRepo[] }>("/api/github/repos", {}, token, githubToken),
+  listGithubRepos: (token?: string, githubToken?: string, githubUid?: string) => {
+    const q = githubUid ? `?github_uid=${encodeURIComponent(githubUid)}` : "";
+    return req<{ repos: GitHubUserRepo[] }>(`/api/github/repos${q}`, {}, token, githubToken);
+  },
   deleteRepo: (repo_id: string, token?: string) =>
     req<{ deleted: string }>(`/api/repos/${encodeURIComponent(repo_id)}`, { method: "DELETE" }, token),
   ingest: (repo_url: string, repo_id?: string, token?: string, githubToken?: string) =>

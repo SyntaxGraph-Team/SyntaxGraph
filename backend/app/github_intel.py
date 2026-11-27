@@ -34,27 +34,54 @@ async def _gh_get(client: httpx.AsyncClient, url: str, params: dict, token_overr
     return r
 
 
-async def list_user_github_repos(github_token: str, limit: int = 24) -> list[dict]:
-    if not github_token:
-        return []
+def _format_repo(repo: dict) -> dict:
+    return {
+        "name": repo["name"],
+        "full_name": repo["full_name"],
+        "url": repo["html_url"],
+        "private": repo.get("private", False),
+        "language": repo.get("language") or "Code",
+        "updated_at": (repo.get("updated_at") or "")[:10],
+    }
+
+
+async def list_user_github_repos(
+    github_token: str | None = None, github_uid: str | None = None, limit: int = 24
+) -> list[dict]:
+    per_page = max(1, min(limit, 50))
     async with httpx.AsyncClient(timeout=15.0) as client:
-        r = await client.get(
-            "https://api.github.com/user/repos",
-            params={"sort": "updated", "per_page": max(1, min(limit, 50)), "affiliation": "owner,collaborator,organization_member"},
-            headers=_gh_headers(github_token),
-        )
-        r.raise_for_status()
-        return [
-            {
-                "name": repo["name"],
-                "full_name": repo["full_name"],
-                "url": repo["html_url"],
-                "private": repo["private"],
-                "language": repo.get("language") or "Code",
-                "updated_at": repo["updated_at"][:10],
-            }
-            for repo in r.json()
-        ]
+        if github_token:
+            r = await client.get(
+                "https://api.github.com/user/repos",
+                params={"sort": "updated", "per_page": per_page, "affiliation": "owner,collaborator,organization_member"},
+                headers=_gh_headers(github_token),
+            )
+            if r.status_code == 200 and r.json():
+                return [_format_repo(repo) for repo in r.json()]
+
+            u = await client.get("https://api.github.com/user", headers=_gh_headers(github_token))
+            if u.status_code == 200:
+                login = u.json().get("login")
+                if login:
+                    pub = await _gh_get(
+                        client,
+                        f"https://api.github.com/users/{login}/repos",
+                        {"sort": "updated", "per_page": per_page},
+                        github_token,
+                    )
+                    return [_format_repo(repo) for repo in pub.json()]
+
+        if github_uid:
+            u = await _gh_get(client, f"https://api.github.com/user/{github_uid}", {})
+            login = u.json().get("login")
+            if login:
+                pub = await _gh_get(
+                    client,
+                    f"https://api.github.com/users/{login}/repos",
+                    {"sort": "updated", "per_page": per_page},
+                )
+                return [_format_repo(repo) for repo in pub.json()]
+    return []
 
 
 async def _gemini_summarize(prompt: str, fallback: str) -> str:

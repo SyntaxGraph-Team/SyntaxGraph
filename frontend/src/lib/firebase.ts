@@ -8,6 +8,7 @@ import {
   signInWithRedirect,
   signOut,
   type Auth,
+  type User,
   type UserCredential,
 } from "firebase/auth";
 
@@ -34,14 +35,19 @@ export function getFirebaseAuth(): Auth | null {
 
 export function getStoredGithubToken(): string | undefined {
   if (typeof window === "undefined") return undefined;
-  return sessionStorage.getItem(GH_TOKEN_KEY) || undefined;
+  return localStorage.getItem(GH_TOKEN_KEY) || undefined;
+}
+
+export function getGithubUid(user: User | null): string | undefined {
+  return user?.providerData?.find((p) => p.providerId === "github.com")?.uid || undefined;
 }
 
 function saveGithubCredential(res: UserCredential | null) {
   if (!res || typeof window === "undefined") return;
   const cred = GithubAuthProvider.credentialFromResult(res);
   if (cred?.accessToken) {
-    sessionStorage.setItem(GH_TOKEN_KEY, cred.accessToken);
+    localStorage.setItem(GH_TOKEN_KEY, cred.accessToken);
+    window.dispatchEvent(new Event("sg-github-token"));
   }
 }
 
@@ -92,7 +98,7 @@ export async function signInProvider(provider: "google" | "github") {
 }
 
 export async function signOutUser() {
-  if (typeof window !== "undefined") sessionStorage.removeItem(GH_TOKEN_KEY);
+  if (typeof window !== "undefined") localStorage.removeItem(GH_TOKEN_KEY);
   const auth = getFirebaseAuth();
   if (auth) await signOut(auth);
 }

@@ -189,13 +189,14 @@ async def symbol_impact(repo_id: str, node_id: str, hops: int = 2, _: dict = Dep
 @app.get("/api/github/repos")
 async def github_user_repos(
     limit: int = 24,
+    github_uid: str | None = None,
     x_github_token: str | None = Header(default=None),
     _: dict = Depends(require_auth),
 ):
-    if not x_github_token:
+    if not x_github_token and not github_uid:
         return {"repos": []}
     try:
-        return {"repos": await list_user_github_repos(x_github_token, limit=limit)}
+        return {"repos": await list_user_github_repos(x_github_token, github_uid=github_uid, limit=limit)}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
