@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .agent import build_agent
 from .auth import require_auth, verify_github_webhook
@@ -45,6 +46,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(_: Request, exc: Exception):
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
 @app.get("/")

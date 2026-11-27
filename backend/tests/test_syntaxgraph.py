@@ -3,7 +3,8 @@ import hmac
 from pathlib import Path
 from fastapi.testclient import TestClient
 
-from app.auth import verify_webhook_signature
+from app.auth import require_auth, verify_webhook_signature
+from app.config import get_settings
 from app.eval import run_evaluation
 from app.ingestor import sync_delta
 from app.main import app
@@ -32,6 +33,23 @@ def test_webhook_hmac_verification():
     sig = "sha256=" + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
     assert verify_webhook_signature(payload, sig, secret)
     assert not verify_webhook_signature(payload, "sha256=bad", secret)
+
+
+async def test_auth_missing_cert_falls_back_to_project_id(monkeypatch):
+    from fastapi import HTTPException
+
+    monkeypatch.setenv("AUTH_DISABLED", "false")
+    monkeypatch.setenv("FIREBASE_PROJECT_ID", "syntaxgraph-67c31")
+    monkeypatch.setenv("FIREBASE_CREDENTIALS_PATH", "C:/nonexistent/serviceAccount.json")
+    get_settings.cache_clear()
+    try:
+        try:
+            await require_auth("Bearer invalid.jwt.token")
+            assert False, "Expected 401"
+        except HTTPException as exc:
+            assert exc.status_code == 401
+    finally:
+        get_settings.cache_clear()
 
 
 async def test_delta_sync_updates_and_removes(tmp_path: Path):
