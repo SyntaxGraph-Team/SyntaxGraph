@@ -23,12 +23,12 @@ import { AboutSection } from "@/components/AboutSection";
 
 type TabId = "explorer" | "chat" | "github" | "eval" | "about";
 
-const TABS: Array<{ id: TabId; label: string }> = [
-  { id: "explorer", label: "Code Map" },
-  { id: "chat", label: "Ask AI" },
-  { id: "github", label: "Recent Updates" },
-  { id: "eval", label: "Benchmarks" },
-  { id: "about", label: "Team" },
+const TABS: Array<{ id: TabId; label: string; hint: string }> = [
+  { id: "explorer", label: "Code Map", hint: "Explore files & links" },
+  { id: "chat", label: "Ask AI", hint: "Plain-English answers" },
+  { id: "github", label: "Recent Updates", hint: "Commits & Pull Requests" },
+  { id: "eval", label: "Benchmarks", hint: "Accuracy & speed" },
+  { id: "about", label: "Team", hint: "SyntaxGraph Team" },
 ];
 
 const SAMPLE_QUERIES = [
@@ -57,6 +57,11 @@ function downloadMarkdown(filename: string, content: string) {
 function pctValue(text: string): number {
   const m = text.match(/[\d.]+/);
   return m ? Math.min(100, Math.max(0, Number(m[0]))) : 0;
+}
+
+function displayUserName(user: User | null): string {
+  if (!user) return "Guest";
+  return user.displayName || user.email?.split("@")[0] || "Developer";
 }
 
 function RingGauge({ value, color }: { value: number; color: string }) {
@@ -316,6 +321,7 @@ export default function HomePage() {
   const connectedEdges = selectedNode
     ? activeGraph.edges.filter((e) => e.source === selectedNode.node_id || e.target === selectedNode.node_id)
     : [];
+  const userName = displayUserName(user);
 
   if (!authReady) {
     return (
@@ -337,64 +343,34 @@ export default function HomePage() {
   }
 
   return (
-    <div className="relative min-h-screen px-4 py-5 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen p-4 sm:p-6">
       <div className="clay-blob-1" />
       <div className="clay-blob-2" />
 
-      {/* Floating Clay Header Bar */}
-      <header className="clay sticky top-4 z-40 mx-auto mb-7 max-w-7xl px-5 py-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-5">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-indigo-500">Codebase Intelligence</p>
-              <h1 className="text-lg font-bold tracking-tight text-slate-900">SyntaxGraph</h1>
-            </div>
-
-            <nav className="clay-well hidden items-center gap-1 rounded-full p-1 md:flex">
-              {TABS.map(({ id, label }) => (
-                <button
-                  key={id}
-                  onClick={() => setTab(id)}
-                  className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-                    tab === id ? "clay-btn !py-1.5" : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
+      {/* Mobile Compact Header */}
+      <header className="clay mb-5 p-4 lg:hidden">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500">Codebase Intelligence</p>
+            <h1 className="text-lg font-bold text-slate-900">SyntaxGraph</h1>
           </div>
-
-          <div className="flex items-center gap-2.5">
-            {health && (
-              <span className="clay-mint hidden items-center gap-2 !rounded-full px-3.5 py-1.5 text-xs font-semibold text-emerald-800 sm:inline-flex">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                {health.store_mode === "neo4j+qdrant" ? "Cloud Ready" : "Local Mode"}
-              </span>
-            )}
-
-            {firebaseConfigured && user ? (
-              <button onClick={signOutUser} className="clay-btn-soft flex items-center gap-2 px-4 py-1.5 text-xs font-semibold">
-                <span className="max-w-[140px] truncate">{user.email || user.displayName}</span>
-                <LogOut className="h-3.5 w-3.5 text-slate-500" />
-              </button>
-            ) : (
-              <button onClick={() => setDevUnlocked(false)} className="clay-btn-soft px-4 py-1.5 text-xs font-semibold">
-                Sign Out
-              </button>
-            )}
-          </div>
+          {firebaseConfigured && user ? (
+            <button onClick={signOutUser} className="clay-btn-soft flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold">
+              <span>{userName}</span>
+              <LogOut className="h-3.5 w-3.5 text-slate-500" />
+            </button>
+          ) : (
+            <button onClick={() => setDevUnlocked(false)} className="clay-btn-soft px-3.5 py-1.5 text-xs font-semibold">
+              Sign Out
+            </button>
+          )}
         </div>
-
-        {/* Mobile Nav */}
-        <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1 md:hidden">
+        <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
           {TABS.map(({ id, label }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ${
-                tab === id ? "clay-btn" : "clay-btn-soft"
-              }`}
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ${tab === id ? "clay-btn" : "clay-btn-soft"}`}
             >
               {label}
             </button>
@@ -402,86 +378,205 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-6">
-        {status && (
-          <div className="clay-mint animate-tab flex items-center justify-between !rounded-2xl px-5 py-3 text-xs font-semibold text-emerald-950">
-            <span>{status}</span>
-            <button onClick={() => setStatus("")} aria-label="Dismiss status" className="text-emerald-700 hover:text-emerald-950">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
+      <div className="mx-auto flex max-w-[1400px] items-start gap-7">
+        {/* Spacious Clay Left Sidebar */}
+        <aside className="clay sticky top-6 hidden w-72 shrink-0 flex-col justify-between gap-6 p-6 lg:flex">
+          <div className="space-y-6">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-indigo-500">Codebase Intelligence</p>
+              <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900">SyntaxGraph</h1>
+            </div>
 
-        {/* TAB 1: CODE MAP */}
-        {tab === "explorer" && (
-          <section key="explorer" className="animate-tab space-y-6">
-            {/* GitHub Connected Repos Picker */}
-            {ghRepos.length > 0 && (
-              <div className="clay p-6">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900">Your GitHub Repositories</h2>
-                    <p className="text-xs text-slate-500">Click any repository below to map it right away — no link pasting needed.</p>
-                  </div>
-                  <button type="button" onClick={refreshGithubRepos} className="clay-btn-soft flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold">
-                    <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            {/* Sidebar Navigation */}
+            <nav className="space-y-2">
+              {TABS.map(({ id, label, hint }) => {
+                const active = tab === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setTab(id)}
+                    className={`flex w-full flex-col items-start rounded-2xl px-4 py-3 text-left transition ${
+                      active ? "clay-btn !rounded-2xl" : "text-slate-600 hover:bg-indigo-50/70 hover:text-slate-900"
+                    }`}
+                  >
+                    <span className="text-sm font-bold">{label}</span>
+                    <span className={`text-[11px] ${active ? "text-indigo-100" : "text-slate-400"}`}>{hint}</span>
                   </button>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {ghRepos.slice(0, 8).map((r) => (
-                    <button
-                      key={r.full_name}
-                      type="button"
-                      disabled={busy}
-                      onClick={() => ingestByUrl(r.url)}
-                      className="clay-card p-4 text-left disabled:opacity-50"
+                );
+              })}
+            </nav>
+
+            {/* Saved Projects Inside Sidebar */}
+            <div className="border-t border-indigo-100 pt-5">
+              <div className="mb-2.5 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">Saved Projects</span>
+                <span className="rounded-full bg-indigo-50 px-2 py-0.5 font-mono text-[10px] font-bold text-indigo-600">
+                  {repos.length}
+                </span>
+              </div>
+              <div className="max-h-40 space-y-1.5 overflow-y-auto pr-1">
+                {repos.length ? (
+                  repos.map((r) => (
+                    <div
+                      key={r.repo_id}
+                      className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs transition ${
+                        repoId === r.repo_id ? "clay-lavender font-bold text-indigo-800" : "bg-slate-50 text-slate-700 hover:bg-indigo-50/60"
+                      }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-bold text-slate-900">{r.name}</span>
-                        {r.private && <Lock className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
-                      </div>
-                      <div className="mt-1 truncate font-mono text-[11px] text-slate-500">{r.full_name}</div>
-                      <div className="mt-2.5 flex items-center justify-between text-[11px]">
-                        <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 font-semibold text-indigo-700">{r.language}</span>
-                        <span className="font-semibold text-indigo-600">Map repo -&gt;</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                      <button
+                        onClick={() => {
+                          handleLoadGraph(r.repo_id);
+                          setTab("explorer");
+                        }}
+                        className="min-w-0 flex-1 truncate text-left font-mono text-[11px]"
+                      >
+                        {r.repo_id}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteRepo(r.repo_id)}
+                        aria-label={`Delete ${r.repo_id}`}
+                        className="ml-2 text-slate-400 hover:text-rose-500"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400">No saved projects yet.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* User Profile & Status Card */}
+          <div className="space-y-3 border-t border-indigo-100 pt-5">
+            {health && (
+              <div className="clay-mint flex items-center gap-2 !rounded-2xl px-3.5 py-2 text-xs font-semibold text-emerald-800">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                {health.store_mode === "neo4j+qdrant" ? "Cloud Engine Ready" : "Local Mode"}
               </div>
             )}
 
-            {/* Main Hero Card + Stats */}
-            <div className="grid gap-5 lg:grid-cols-12">
-              <form onSubmit={handleIngest} className="clay flex flex-col justify-between gap-4 p-6 sm:p-7 lg:col-span-8">
-                <div>
-                  <span className="clay-sky inline-block px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-sky-800">
-                    Code Map
-                  </span>
-                  <h2 className="mt-2.5 text-2xl font-bold text-slate-900">
-                    {ghRepos.length ? "Or paste any public GitHub link" : "Connect any GitHub repository"}
-                  </h2>
-                  <p className="mt-1 text-xs leading-6 text-slate-500">
-                    We read the files and build a visual map showing how classes and functions call each other.
-                  </p>
+            <div className="clay-well flex items-center justify-between gap-2.5 !rounded-2xl p-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                {user?.photoURL ? (
+                  <img src={user.photoURL} alt={userName} className="h-9 w-9 shrink-0 rounded-full border-2 border-white object-cover shadow-sm" />
+                ) : (
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-xs font-bold text-white">
+                    {userName.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-bold text-slate-900">{userName}</div>
+                  <div className="text-[10px] font-medium text-slate-500">Signed in</div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => (firebaseConfigured && user ? signOutUser() : setDevUnlocked(false))}
+                title="Sign Out"
+                className="clay-btn-soft p-2 text-slate-500 hover:text-rose-600"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Uncrowded Workspace */}
+        <main className="min-w-0 flex-1 space-y-7">
+          {status && (
+            <div className="clay-mint animate-tab flex items-center justify-between !rounded-2xl px-5 py-3.5 text-xs font-semibold text-emerald-950">
+              <span>{status}</span>
+              <button onClick={() => setStatus("")} aria-label="Dismiss status" className="text-emerald-700 hover:text-emerald-950">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {/* TAB 1: CODE MAP */}
+          {tab === "explorer" && (
+            <section key="explorer" className="animate-tab space-y-7">
+              {/* GitHub Connected Repos Picker */}
+              {ghRepos.length > 0 && (
+                <div className="clay p-6 sm:p-7">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900">Your GitHub Repositories</h2>
+                      <p className="text-xs text-slate-500">Click any repository to open and map it right away.</p>
+                    </div>
+                    <button type="button" onClick={refreshGithubRepos} className="clay-btn-soft flex items-center gap-1.5 px-4 py-2 text-xs font-semibold">
+                      <RefreshCw className="h-3.5 w-3.5" /> Refresh
+                    </button>
+                  </div>
+                  <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+                    {ghRepos.slice(0, 8).map((r) => (
+                      <button
+                        key={r.full_name}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => ingestByUrl(r.url)}
+                        className="clay-card p-4 text-left disabled:opacity-50"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-sm font-bold text-slate-900">{r.name}</span>
+                          {r.private && <Lock className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
+                        </div>
+                        <div className="mt-1 truncate font-mono text-[11px] text-slate-500">{r.full_name}</div>
+                        <div className="mt-3 flex items-center justify-between text-[11px]">
+                          <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 font-semibold text-indigo-700">{r.language}</span>
+                          <span className="font-semibold text-indigo-600">Map repo -&gt;</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Connect Card */}
+              <form onSubmit={handleIngest} className="clay space-y-5 p-6 sm:p-8">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <span className="clay-sky inline-block px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-sky-800">
+                      Code Map
+                    </span>
+                    <h2 className="mt-2.5 text-2xl font-bold text-slate-900">
+                      {ghRepos.length ? "Or paste any public GitHub link" : "Connect a GitHub repository"}
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      We read the files and map how classes and functions call each other.
+                    </p>
+                  </div>
+
+                  {/* Clean Compact Stats */}
+                  <div className="flex flex-wrap gap-3">
+                    <div className="clay-sky px-4 py-2.5 text-center">
+                      <div className="text-lg font-bold text-slate-900">{activeGraph.nodes.length}</div>
+                      <div className="text-[10px] font-semibold text-slate-600">Items</div>
+                    </div>
+                    <div className="clay-lavender px-4 py-2.5 text-center">
+                      <div className="text-lg font-bold text-indigo-700">{activeGraph.edges.length}</div>
+                      <div className="text-[10px] font-semibold text-slate-600">Links</div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2.5">
+                <div className="flex flex-wrap gap-3">
                   <input
                     value={repoUrl}
                     onChange={(e) => setRepoUrl(e.target.value)}
                     placeholder="https://github.com/owner/repo"
-                    className="clay-well min-w-[240px] flex-1 px-4 py-3 text-sm text-slate-800 outline-none"
+                    className="clay-well min-w-[260px] flex-1 px-4 py-3 text-sm text-slate-800 outline-none"
                   />
                   <input
                     value={repoId}
                     onChange={(e) => setRepoId(e.target.value)}
                     placeholder="Project ID"
-                    className="clay-well w-48 px-4 py-3 font-mono text-xs text-slate-700 outline-none"
+                    className="clay-well w-52 px-4 py-3 font-mono text-xs text-slate-700 outline-none"
                   />
                 </div>
 
-                <div className="flex flex-wrap gap-2.5">
+                <div className="flex flex-wrap gap-3">
                   <button disabled={busy} className="clay-btn inline-flex items-center gap-2 px-6 py-2.5 text-xs font-semibold disabled:opacity-50">
                     {busy ? "Working..." : "Map This Repo"}
                     <ArrowRight className="h-3.5 w-3.5" />
@@ -498,493 +593,449 @@ export default function HomePage() {
                 </div>
               </form>
 
-              <div className="grid grid-cols-3 gap-3 lg:col-span-4 lg:grid-cols-1">
-                <div className="clay-sky clay-card flex items-center justify-between px-5 py-4">
-                  <div>
-                    <div className="text-xs font-bold text-slate-800">Code Items</div>
-                    <div className="text-[11px] text-slate-500">Files &amp; functions</div>
-                  </div>
-                  <div className="text-3xl font-bold text-slate-900">{activeGraph.nodes.length}</div>
-                </div>
-                <div className="clay-lavender clay-card flex items-center justify-between px-5 py-4">
-                  <div>
-                    <div className="text-xs font-bold text-slate-800">Connections</div>
-                    <div className="text-[11px] text-slate-500">Calls &amp; imports</div>
-                  </div>
-                  <div className="text-3xl font-bold text-indigo-700">{activeGraph.edges.length}</div>
-                </div>
-                <div className="clay-peach clay-card flex items-center justify-between px-5 py-4">
-                  <div>
-                    <div className="text-xs font-bold text-slate-800">Saved Projects</div>
-                    <div className="text-[11px] text-slate-500">Ready to open</div>
-                  </div>
-                  <div className="text-3xl font-bold text-amber-700">{repos.length}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Saved Projects & Trace Connection */}
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="clay flex flex-wrap items-center gap-2 px-5 py-3.5">
-                <span className="text-xs font-bold text-slate-700">Saved Projects:</span>
-                {repos.length ? (
-                  repos.map((r) => (
-                    <span key={r.repo_id} className="clay-btn-soft inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold">
-                      <button onClick={() => handleLoadGraph(r.repo_id)} className="font-mono hover:text-indigo-600">
-                        {r.repo_id} ({r.files}f)
-                      </button>
-                      <button onClick={() => handleDeleteRepo(r.repo_id)} aria-label={`Delete ${r.repo_id}`} className="text-slate-400 hover:text-rose-500">
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-slate-500">None yet — map a repo above.</span>
-                )}
-              </div>
-
-              <form onSubmit={handleTracePath} className="clay flex flex-wrap items-center gap-2 px-5 py-3">
-                <span className="text-xs font-bold text-slate-700">Find Connection:</span>
-                <input
-                  value={pathSrc}
-                  onChange={(e) => setPathSrc(e.target.value)}
-                  placeholder="Start function"
-                  className="clay-well w-32 flex-1 px-3 py-2 font-mono text-xs text-slate-800 outline-none"
-                />
-                <span className="text-xs text-slate-400">to</span>
-                <input
-                  value={pathTgt}
-                  onChange={(e) => setPathTgt(e.target.value)}
-                  placeholder="Target function"
-                  className="clay-well w-32 flex-1 px-3 py-2 font-mono text-xs text-slate-800 outline-none"
-                />
-                <button disabled={busy} className="clay-btn px-4 py-2 text-xs font-semibold">
-                  Trace
-                </button>
-              </form>
-            </div>
-
-            {/* Graph + Inspector */}
-            <div className="grid gap-5 lg:grid-cols-3">
-              <div className="space-y-3 lg:col-span-2">
-                {subgraphOverlay && (
-                  <div className="clay-peach flex items-center justify-between !rounded-2xl px-4 py-2.5 text-xs font-semibold text-amber-900">
-                    <span>{subgraphOverlay.label}</span>
-                    <button onClick={() => setSubgraphOverlay(null)} className="underline">
-                      Show Full Map
+              {/* Map + Inspector */}
+              <div className="grid gap-6 xl:grid-cols-3">
+                <div className="space-y-4 xl:col-span-2">
+                  <form onSubmit={handleTracePath} className="clay flex flex-wrap items-center gap-2.5 px-5 py-3">
+                    <span className="text-xs font-bold text-slate-700">Find Connection:</span>
+                    <input
+                      value={pathSrc}
+                      onChange={(e) => setPathSrc(e.target.value)}
+                      placeholder="Start function"
+                      className="clay-well w-32 flex-1 px-3.5 py-2 font-mono text-xs text-slate-800 outline-none"
+                    />
+                    <span className="text-xs text-slate-400">to</span>
+                    <input
+                      value={pathTgt}
+                      onChange={(e) => setPathTgt(e.target.value)}
+                      placeholder="Target function"
+                      className="clay-well w-32 flex-1 px-3.5 py-2 font-mono text-xs text-slate-800 outline-none"
+                    />
+                    <button disabled={busy} className="clay-btn px-4 py-2 text-xs font-semibold">
+                      Trace
                     </button>
-                  </div>
-                )}
-                <GraphView data={activeGraph} selectedId={selectedNode?.node_id} onSelectNode={handleSelectNode} />
-              </div>
+                  </form>
 
-              <div className="clay p-5">
-                {selectedNode ? (
-                  <div key={selectedNode.node_id} className="animate-slide-right space-y-3.5">
-                    <div className="flex items-center justify-between">
-                      <span className="clay-lavender px-3 py-1 text-[11px] font-bold text-indigo-700">{selectedNode.kind}</span>
-                      <span className="font-mono text-[11px] text-slate-500">
-                        Lines {selectedNode.start_line}-{selectedNode.end_line}
-                      </span>
+                  {subgraphOverlay && (
+                    <div className="clay-peach flex items-center justify-between !rounded-2xl px-4 py-2.5 text-xs font-semibold text-amber-900">
+                      <span>{subgraphOverlay.label}</span>
+                      <button onClick={() => setSubgraphOverlay(null)} className="underline">
+                        Show Full Map
+                      </button>
                     </div>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900">{selectedNode.name}</h3>
-                      <p className="mt-0.5 truncate font-mono text-xs text-indigo-600">{selectedNode.file_path}</p>
-                    </div>
-                    {(selectedNode.raw_code || selectedNode.signature) && (
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => handleCopyCode(selectedNode.raw_code || selectedNode.signature || "")}
-                          className="clay-btn-soft absolute top-2 right-2 px-2.5 py-1 text-[10px] font-semibold"
-                        >
-                          {copied ? "Copied" : <Copy className="h-3 w-3" />}
-                        </button>
-                        <pre className="clay-well max-h-44 overflow-auto p-3 font-mono text-[11px] leading-relaxed text-slate-800">
-                          {selectedNode.raw_code || selectedNode.signature}
-                        </pre>
+                  )}
+
+                  <GraphView data={activeGraph} selectedId={selectedNode?.node_id} onSelectNode={handleSelectNode} />
+                </div>
+
+                <div className="clay p-6">
+                  {selectedNode ? (
+                    <div key={selectedNode.node_id} className="animate-slide-right space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="clay-lavender px-3 py-1 text-[11px] font-bold text-indigo-700">{selectedNode.kind}</span>
+                        <span className="font-mono text-[11px] text-slate-500">
+                          Lines {selectedNode.start_line}-{selectedNode.end_line}
+                        </span>
                       </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900">{selectedNode.name}</h3>
+                        <p className="mt-0.5 truncate font-mono text-xs text-indigo-600">{selectedNode.file_path}</p>
+                      </div>
+                      {(selectedNode.raw_code || selectedNode.signature) && (
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyCode(selectedNode.raw_code || selectedNode.signature || "")}
+                            className="clay-btn-soft absolute top-2 right-2 px-2.5 py-1 text-[10px] font-semibold"
+                          >
+                            {copied ? "Copied" : <Copy className="h-3 w-3" />}
+                          </button>
+                          <pre className="clay-well max-h-48 overflow-auto p-3.5 font-mono text-[11px] leading-relaxed text-slate-800">
+                            {selectedNode.raw_code || selectedNode.signature}
+                          </pre>
+                        </div>
+                      )}
+                      <button onClick={() => handleBlastRadius(selectedNode)} disabled={busy} className="clay-btn w-full py-2.5 text-xs font-semibold">
+                        See Connected Code
+                      </button>
+                      <div className="border-t border-indigo-100 pt-3">
+                        <div className="mb-2 text-[11px] font-bold text-slate-600">Direct Links ({connectedEdges.length})</div>
+                        <div className="max-h-32 space-y-1.5 overflow-y-auto pr-1">
+                          {connectedEdges.slice(0, 10).map((e, i) => (
+                            <div key={i} className="clay-well truncate !rounded-xl px-3 py-1.5 font-mono text-[10px] text-slate-700">
+                              {e.source.split(":").slice(-2, -1)[0] || e.source}{" "}
+                              <span className="font-bold text-indigo-600">[{e.kind}]</span>{" "}
+                              {e.target.split(":").slice(-2, -1)[0] || e.target}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex h-full min-h-[300px] flex-col items-center justify-center text-center">
+                      <div className="text-sm font-bold text-slate-800">Code Inspector</div>
+                      <p className="mt-2 max-w-[230px] text-xs leading-6 text-slate-500">
+                        Click any dot on the map to read its code and see which parts of the project depend on it.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {auditRes && (
+                <div className="clay animate-tab grid gap-6 p-7 md:grid-cols-3">
+                  <div>
+                    <div className="mb-3 text-xs font-bold text-rose-700">Circular Loops ({auditRes.cycles.length})</div>
+                    {auditRes.cycles.length ? (
+                      <div className="space-y-2">
+                        {auditRes.cycles.map((c, i) => (
+                          <div key={i} className="clay-well !rounded-xl px-3 py-2 font-mono text-[11px] text-rose-800">
+                            {c.join(" -> ")}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500">No circular loops found.</p>
                     )}
-                    <button onClick={() => handleBlastRadius(selectedNode)} disabled={busy} className="clay-btn w-full py-2.5 text-xs font-semibold">
-                      See Connected Code
+                  </div>
+                  <div>
+                    <div className="mb-3 text-xs font-bold text-indigo-700">Most Connected Code ({auditRes.hotspots.length})</div>
+                    <div className="space-y-2">
+                      {auditRes.hotspots.map((h) => (
+                        <div key={h.node_id} className="clay-well flex items-center justify-between !rounded-xl px-3 py-2 text-xs">
+                          <span className="truncate font-mono font-semibold text-slate-800">{h.name}</span>
+                          <span className="shrink-0 font-mono text-[10px] text-slate-500">{h.fan_in} in / {h.fan_out} out</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-3 text-xs font-bold text-sky-700">Unused Functions ({auditRes.orphan_symbols.length})</div>
+                    <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
+                      {auditRes.orphan_symbols.map((o) => (
+                        <div key={o.node_id} className="clay-well flex items-center justify-between !rounded-xl px-3 py-2 text-xs">
+                          <span className="truncate font-mono font-semibold text-slate-800">{o.name}</span>
+                          <span className="shrink-0 font-mono text-[10px] text-slate-500">{o.file_path}:{o.start_line}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {projectSummary && (
+                <div className="clay animate-tab space-y-4 p-7 sm:p-8">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-lg font-bold text-slate-900">
+                      Project Summary · <span className="font-mono text-indigo-600">{projectSummary.repo_id}</span>
+                    </h3>
+                    <button
+                      onClick={() => downloadMarkdown(`${projectSummary.repo_id}-overview.md`, projectSummary.summary)}
+                      className="clay-btn-soft flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Save Report
                     </button>
-                    <div className="border-t border-indigo-100 pt-3">
-                      <div className="mb-2 text-[11px] font-bold text-slate-600">Direct Links ({connectedEdges.length})</div>
-                      <div className="max-h-28 space-y-1.5 overflow-y-auto pr-1">
-                        {connectedEdges.slice(0, 10).map((e, i) => (
-                          <div key={i} className="clay-well truncate !rounded-xl px-3 py-1.5 font-mono text-[10px] text-slate-700">
-                            {e.source.split(":").slice(-2, -1)[0] || e.source}{" "}
-                            <span className="font-bold text-indigo-600">[{e.kind}]</span>{" "}
-                            {e.target.split(":").slice(-2, -1)[0] || e.target}
+                  </div>
+                  <div className="grid gap-6 md:grid-cols-3">
+                    <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-700 md:col-span-2">{projectSummary.summary}</pre>
+                    <div className="clay-lavender p-5">
+                      <div className="mb-3 text-xs font-bold text-indigo-900">Key Parts</div>
+                      <div className="space-y-2.5">
+                        {projectSummary.hubs.map((h) => (
+                          <div key={`${h.file_path}:${h.name}`} className="flex items-center justify-between text-xs">
+                            <span className="truncate font-mono font-semibold text-indigo-700">{h.name}</span>
+                            <span className="shrink-0 rounded-full bg-white px-2.5 py-0.5 font-mono text-[10px] text-slate-600 shadow-sm">{h.degree} links</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="flex h-full min-h-[280px] flex-col items-center justify-center text-center">
-                    <div className="text-sm font-bold text-slate-800">Code Inspector</div>
-                    <p className="mt-2 max-w-[230px] text-xs leading-6 text-slate-500">
-                      Click any dot on the map to read its code and see which parts of the project depend on it.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {auditRes && (
-              <div className="clay animate-tab grid gap-5 p-6 md:grid-cols-3">
-                <div>
-                  <div className="mb-2.5 text-xs font-bold text-rose-700">Circular Loops ({auditRes.cycles.length})</div>
-                  {auditRes.cycles.length ? (
-                    <div className="space-y-1.5">
-                      {auditRes.cycles.map((c, i) => (
-                        <div key={i} className="clay-well !rounded-xl px-3 py-2 font-mono text-[11px] text-rose-800">
-                          {c.join(" -> ")}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-500">No circular loops found.</p>
-                  )}
-                </div>
-                <div>
-                  <div className="mb-2.5 text-xs font-bold text-indigo-700">Most Connected Code ({auditRes.hotspots.length})</div>
-                  <div className="space-y-1.5">
-                    {auditRes.hotspots.map((h) => (
-                      <div key={h.node_id} className="clay-well flex items-center justify-between !rounded-xl px-3 py-2 text-xs">
-                        <span className="truncate font-mono font-semibold text-slate-800">{h.name}</span>
-                        <span className="shrink-0 font-mono text-[10px] text-slate-500">{h.fan_in} in / {h.fan_out} out</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-2.5 text-xs font-bold text-sky-700">Unused Functions ({auditRes.orphan_symbols.length})</div>
-                  <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
-                    {auditRes.orphan_symbols.map((o) => (
-                      <div key={o.node_id} className="clay-well flex items-center justify-between !rounded-xl px-3 py-2 text-xs">
-                        <span className="truncate font-mono font-semibold text-slate-800">{o.name}</span>
-                        <span className="shrink-0 font-mono text-[10px] text-slate-500">{o.file_path}:{o.start_line}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {projectSummary && (
-              <div className="clay animate-tab space-y-4 p-6 sm:p-8">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-lg font-bold text-slate-900">
-                    Project Summary · <span className="font-mono text-indigo-600">{projectSummary.repo_id}</span>
-                  </h3>
-                  <button
-                    onClick={() => downloadMarkdown(`${projectSummary.repo_id}-overview.md`, projectSummary.summary)}
-                    className="clay-btn-soft flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold"
-                  >
-                    <Download className="h-3.5 w-3.5" /> Save Report
-                  </button>
-                </div>
-                <div className="grid gap-5 md:grid-cols-3">
-                  <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-700 md:col-span-2">{projectSummary.summary}</pre>
-                  <div className="clay-lavender p-4">
-                    <div className="mb-3 text-xs font-bold text-indigo-900">Key Parts</div>
-                    <div className="space-y-2">
-                      {projectSummary.hubs.map((h) => (
-                        <div key={`${h.file_path}:${h.name}`} className="flex items-center justify-between text-xs">
-                          <span className="truncate font-mono font-semibold text-indigo-700">{h.name}</span>
-                          <span className="shrink-0 rounded-full bg-white px-2.5 py-0.5 font-mono text-[10px] text-slate-600 shadow-sm">{h.degree} links</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* TAB 2: ASK AI */}
-        {tab === "chat" && (
-          <section key="chat" className="animate-tab space-y-6">
-            <div className="clay p-6 sm:p-8">
-              <span className="clay-mint inline-block px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-800">
-                Ask AI
-              </span>
-              <h2 className="mt-2.5 text-2xl font-bold text-slate-900">Ask anything about your repository</h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Get clear answers based on your actual files, complete with clickable file and line links.
-              </p>
-
-              <form onSubmit={handleQuery} className="mt-5 flex flex-wrap gap-2.5">
-                <input
-                  value={repoId}
-                  onChange={(e) => setRepoId(e.target.value)}
-                  placeholder="Project ID"
-                  className="clay-well w-52 px-4 py-3 font-mono text-xs text-slate-800 outline-none"
-                />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Ask a question in plain English..."
-                  className="clay-well min-w-[240px] flex-1 px-4 py-3 text-sm text-slate-800 outline-none"
-                />
-                <button disabled={busy} className="clay-btn inline-flex items-center gap-2 px-6 py-3 text-xs font-semibold disabled:opacity-50">
-                  {busy ? "Searching..." : "Ask AI"}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              </form>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {[...SAMPLE_QUERIES, ...history.filter((h) => !SAMPLE_QUERIES.includes(h))].slice(0, 6).map((q) => (
-                  <button key={q} onClick={() => setQuery(q)} className="clay-btn-soft px-3.5 py-1.5 text-xs font-medium">
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {["1. Read Question", "2. Find Matching Code", "3. Follow Links", "4. Write Answer"].map((step) => (
-                <div
-                  key={step}
-                  className={`px-4 py-3 text-xs font-bold transition ${
-                    queryRes || busy ? "clay-mint text-emerald-900" : "clay text-slate-500"
-                  }`}
-                >
-                  {step}
-                </div>
-              ))}
-            </div>
-
-            {queryRes && (
-              <div className="grid gap-5 lg:grid-cols-3">
-                <div className="clay animate-tab space-y-4 p-6 lg:col-span-2">
-                  <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-800">{queryRes.answer}</pre>
-                  <div className="border-t border-indigo-100 pt-4">
-                    <div className="mb-2.5 text-xs font-bold text-slate-600">Referenced Files (click to inspect)</div>
-                    <div className="flex flex-wrap gap-2">
-                      {queryRes.citations.map((c) => (
-                        <button
-                          key={c.node_id}
-                          onClick={() => {
-                            handleSelectNode(c);
-                            setTab("explorer");
-                          }}
-                          className="clay-btn-soft px-3 py-1.5 font-mono text-[11px] font-semibold text-indigo-700"
-                        >
-                          {c.file_path}:{c.start_line}-{c.end_line} · {c.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="clay-lavender animate-slide-right space-y-2.5 p-5">
-                  <div className="text-xs font-bold text-indigo-900">How We Found This</div>
-                  {queryRes.trace.map((t, i) => (
-                    <div key={i} className="rounded-2xl bg-white/80 px-3.5 py-2.5 font-mono text-[11px] text-slate-700 shadow-sm">
-                      {t}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* TAB 3: RECENT UPDATES */}
-        {tab === "github" && (
-          <section key="github" className="animate-tab space-y-6">
-            <div className="clay p-6 sm:p-8">
-              <span className="clay-peach inline-block px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-800">
-                Recent Updates
-              </span>
-              <h2 className="mt-2.5 text-2xl font-bold text-slate-900">Summarize recent commits &amp; pull requests</h2>
-
-              {ghRepos.length > 0 && (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-500">Pick yours:</span>
-                  {ghRepos.slice(0, 6).map((r) => (
-                    <button
-                      key={r.full_name}
-                      type="button"
-                      onClick={() => setRepoUrl(r.url)}
-                      className={`px-3 py-1 text-xs font-semibold transition ${
-                        repoUrl === r.url ? "clay-btn" : "clay-btn-soft"
-                      }`}
-                    >
-                      {r.name}
-                    </button>
-                  ))}
                 </div>
               )}
+            </section>
+          )}
 
-              <form onSubmit={handleGithubSummary} className="mt-5 flex flex-wrap items-center gap-2.5">
-                <input
-                  value={repoUrl}
-                  onChange={(e) => setRepoUrl(e.target.value)}
-                  placeholder="https://github.com/owner/repo"
-                  className="clay-well min-w-[260px] flex-1 px-4 py-3 text-sm text-slate-800 outline-none"
-                />
-                <div className="clay-well flex rounded-full p-1">
-                  <button
-                    type="button"
-                    onClick={() => setGhKind("commits")}
-                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${ghKind === "commits" ? "clay-btn" : "text-slate-600"}`}
-                  >
-                    Commits
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setGhKind("prs")}
-                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${ghKind === "prs" ? "clay-btn" : "text-slate-600"}`}
-                  >
-                    Pull Requests
-                  </button>
-                </div>
-                <select
-                  value={ghLimit}
-                  onChange={(e) => setGhLimit(Number(e.target.value))}
-                  className="clay-well px-4 py-3 text-xs font-semibold text-slate-700 outline-none"
-                >
-                  <option value={5}>Last 5</option>
-                  <option value={10}>Last 10</option>
-                  <option value={15}>Last 15</option>
-                </select>
-                <button disabled={busy} className="clay-btn px-6 py-3 text-xs font-semibold disabled:opacity-50">
-                  {busy ? "Summarizing..." : "Summarize"}
-                </button>
-              </form>
-            </div>
+          {/* TAB 2: ASK AI */}
+          {tab === "chat" && (
+            <section key="chat" className="animate-tab space-y-7">
+              <div className="clay p-7 sm:p-8">
+                <span className="clay-mint inline-block px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-800">
+                  Ask AI
+                </span>
+                <h2 className="mt-2.5 text-2xl font-bold text-slate-900">Ask anything about your repository</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Get clear answers based on your actual files, complete with clickable file and line links.
+                </p>
 
-            {ghRes && (
-              <div className="animate-tab space-y-5">
-                <div className="clay p-6 sm:p-8">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-base font-bold text-slate-900">
-                      Summary of {ghRes.kind === "commits" ? "Recent Commits" : "Pull Requests"} ·{" "}
-                      <span className="font-mono text-indigo-600">{ghRes.repo}</span>
-                    </h3>
-                    <button
-                      onClick={() => downloadMarkdown(`${ghRes.repo.replace("/", "_")}-${ghRes.kind}.md`, ghRes.summary)}
-                      className="clay-btn-soft flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold"
-                    >
-                      <Download className="h-3.5 w-3.5" /> Save Summary
+                <form onSubmit={handleQuery} className="mt-6 flex flex-wrap gap-3">
+                  <input
+                    value={repoId}
+                    onChange={(e) => setRepoId(e.target.value)}
+                    placeholder="Project ID"
+                    className="clay-well w-52 px-4 py-3 font-mono text-xs text-slate-800 outline-none"
+                  />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Ask a question in plain English..."
+                    className="clay-well min-w-[240px] flex-1 px-4 py-3 text-sm text-slate-800 outline-none"
+                  />
+                  <button disabled={busy} className="clay-btn inline-flex items-center gap-2 px-6 py-3 text-xs font-semibold disabled:opacity-50">
+                    {busy ? "Searching..." : "Ask AI"}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                </form>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {[...SAMPLE_QUERIES, ...history.filter((h) => !SAMPLE_QUERIES.includes(h))].slice(0, 6).map((q) => (
+                    <button key={q} onClick={() => setQuery(q)} className="clay-btn-soft px-3.5 py-1.5 text-xs font-medium">
+                      {q}
                     </button>
-                  </div>
-                  <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-700">{ghRes.summary}</pre>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  {ghRes.items.map((item) => (
-                    <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="clay-card group flex flex-col justify-between p-5">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-mono font-bold text-indigo-600">{item.id}</span>
-                          <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase text-indigo-700">
-                            {item.state}
-                          </span>
-                        </div>
-                        <p className="text-sm font-bold text-slate-900 group-hover:text-indigo-600">{item.title}</p>
-                        {item.body && <p className="line-clamp-2 text-xs leading-6 text-slate-500">{item.body}</p>}
-                      </div>
-                      <div className="mt-4 flex items-center justify-between font-mono text-[11px] text-slate-400">
-                        <span>{item.author} · {item.date}</span>
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </div>
-                    </a>
                   ))}
                 </div>
               </div>
-            )}
-          </section>
-        )}
 
-        {/* TAB 4: BENCHMARKS */}
-        {tab === "eval" && (
-          <section key="eval" className="animate-tab space-y-6">
-            <div className="clay flex flex-wrap items-center justify-between gap-4 p-6 sm:p-8">
-              <div>
-                <span className="clay-sky inline-block px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-sky-800">
-                  Benchmarks
-                </span>
-                <h2 className="mt-2.5 text-2xl font-bold text-slate-900">SyntaxGraph vs Standard Search</h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  Runs 10 real multi-file coding questions to measure accuracy, connection tracing, and update speed.
-                </p>
+              <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+                {["1. Read Question", "2. Find Matching Code", "3. Follow Links", "4. Write Answer"].map((step) => (
+                  <div
+                    key={step}
+                    className={`px-4 py-3.5 text-xs font-bold transition ${
+                      queryRes || busy ? "clay-mint text-emerald-900" : "clay text-slate-500"
+                    }`}
+                  >
+                    {step}
+                  </div>
+                ))}
               </div>
-              <button onClick={handleEval} disabled={busy} className="clay-btn px-6 py-3 text-xs font-semibold disabled:opacity-50">
-                {busy ? "Running Test..." : "Run Benchmark"}
-              </button>
-            </div>
 
-            {evalRes && (
-              <>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {evalRes.summary.map((row) => {
-                    const info = METRIC_LABELS[row.metric] || { title: row.metric, subtitle: "", tint: "clay-sky" };
-                    const isPct = row.proposed_syntaxgraph.includes("%");
-                    const val = pctValue(row.proposed_syntaxgraph);
-                    return (
-                      <div key={row.metric} className={`${info.tint} clay-card flex items-center justify-between gap-3 p-5`}>
-                        <div>
-                          <div className="text-xs font-bold text-slate-900">{info.title}</div>
-                          <div className="mt-0.5 text-[11px] text-slate-600">{info.subtitle}</div>
-                          <div className="mt-3 font-mono text-2xl font-bold text-slate-900">{row.proposed_syntaxgraph}</div>
-                          <div className="mt-1 text-[11px] text-slate-600">
-                            Standard: {row.baseline_vector_rag} · <span className="font-bold text-indigo-700">{row.improvement}</span>
-                          </div>
-                        </div>
-                        {isPct && <RingGauge value={val} color={row.metric.includes("Hallucination") ? "#10b981" : "#6366f1"} />}
+              {queryRes && (
+                <div className="grid gap-6 lg:grid-cols-3">
+                  <div className="clay animate-tab space-y-4 p-7 lg:col-span-2">
+                    <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-800">{queryRes.answer}</pre>
+                    <div className="border-t border-indigo-100 pt-4">
+                      <div className="mb-2.5 text-xs font-bold text-slate-600">Referenced Files (click to inspect)</div>
+                      <div className="flex flex-wrap gap-2">
+                        {queryRes.citations.map((c) => (
+                          <button
+                            key={c.node_id}
+                            onClick={() => {
+                              handleSelectNode(c);
+                              setTab("explorer");
+                            }}
+                            className="clay-btn-soft px-3 py-1.5 font-mono text-[11px] font-semibold text-indigo-700"
+                          >
+                            {c.file_path}:{c.start_line}-{c.end_line} · {c.name}
+                          </button>
+                        ))}
                       </div>
-                    );
-                  })}
+                    </div>
+                  </div>
+                  <div className="clay-lavender animate-slide-right space-y-2.5 p-6">
+                    <div className="text-xs font-bold text-indigo-900">How We Found This</div>
+                    {queryRes.trace.map((t, i) => (
+                      <div key={i} className="rounded-2xl bg-white/80 px-3.5 py-2.5 font-mono text-[11px] text-slate-700 shadow-sm">
+                        {t}
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              )}
+            </section>
+          )}
 
-                <div className="clay overflow-hidden p-2">
-                  <table className="w-full text-left text-xs">
-                    <thead className="border-b border-indigo-100 text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3">Question Type</th>
-                        <th className="px-4 py-3">Test Question</th>
-                        <th className="px-4 py-3">Standard Search</th>
-                        <th className="px-4 py-3">SyntaxGraph</th>
-                        <th className="px-4 py-3">Connection Accuracy</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-indigo-50">
-                      {evalRes.cases.map((c, idx) => (
-                        <tr key={idx} className="hover:bg-white/60">
-                          <td className="px-4 py-3 font-semibold text-slate-600">
-                            {c.category === "LOCAL_SYMBOL_LOOKUP"
-                              ? "Quick Lookup"
-                              : c.category === "CROSS_FILE_DEPENDENCY_TRACE"
-                              ? "Cross-File Trace"
-                              : "Bug Finding"}
-                          </td>
-                          <td className="px-4 py-3 text-slate-800">{c.query}</td>
-                          <td className="px-4 py-3 font-mono text-slate-500">{c.baseline_recall}%</td>
-                          <td className="px-4 py-3 font-mono font-bold text-emerald-700">{c.syntaxgraph_recall}%</td>
-                          <td className="px-4 py-3 font-mono font-bold text-indigo-700">{c.syntaxgraph_edge_acc}%</td>
+          {/* TAB 3: RECENT UPDATES */}
+          {tab === "github" && (
+            <section key="github" className="animate-tab space-y-7">
+              <div className="clay p-7 sm:p-8">
+                <span className="clay-peach inline-block px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-800">
+                  Recent Updates
+                </span>
+                <h2 className="mt-2.5 text-2xl font-bold text-slate-900">Summarize recent commits &amp; pull requests</h2>
+
+                {ghRepos.length > 0 && (
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-500">Pick yours:</span>
+                    {ghRepos.slice(0, 6).map((r) => (
+                      <button
+                        key={r.full_name}
+                        type="button"
+                        onClick={() => setRepoUrl(r.url)}
+                        className={`px-3.5 py-1.5 text-xs font-semibold transition ${
+                          repoUrl === r.url ? "clay-btn" : "clay-btn-soft"
+                        }`}
+                      >
+                        {r.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <form onSubmit={handleGithubSummary} className="mt-5 flex flex-wrap items-center gap-3">
+                  <input
+                    value={repoUrl}
+                    onChange={(e) => setRepoUrl(e.target.value)}
+                    placeholder="https://github.com/owner/repo"
+                    className="clay-well min-w-[260px] flex-1 px-4 py-3 text-sm text-slate-800 outline-none"
+                  />
+                  <div className="clay-well flex rounded-full p-1">
+                    <button
+                      type="button"
+                      onClick={() => setGhKind("commits")}
+                      className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${ghKind === "commits" ? "clay-btn" : "text-slate-600"}`}
+                    >
+                      Commits
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGhKind("prs")}
+                      className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${ghKind === "prs" ? "clay-btn" : "text-slate-600"}`}
+                    >
+                      Pull Requests
+                    </button>
+                  </div>
+                  <select
+                    value={ghLimit}
+                    onChange={(e) => setGhLimit(Number(e.target.value))}
+                    className="clay-well px-4 py-3 text-xs font-semibold text-slate-700 outline-none"
+                  >
+                    <option value={5}>Last 5</option>
+                    <option value={10}>Last 10</option>
+                    <option value={15}>Last 15</option>
+                  </select>
+                  <button disabled={busy} className="clay-btn px-6 py-3 text-xs font-semibold disabled:opacity-50">
+                    {busy ? "Summarizing..." : "Summarize"}
+                  </button>
+                </form>
+              </div>
+
+              {ghRes && (
+                <div className="animate-tab space-y-5">
+                  <div className="clay p-7 sm:p-8">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-base font-bold text-slate-900">
+                        Summary of {ghRes.kind === "commits" ? "Recent Commits" : "Pull Requests"} ·{" "}
+                        <span className="font-mono text-indigo-600">{ghRes.repo}</span>
+                      </h3>
+                      <button
+                        onClick={() => downloadMarkdown(`${ghRes.repo.replace("/", "_")}-${ghRes.kind}.md`, ghRes.summary)}
+                        className="clay-btn-soft flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold"
+                      >
+                        <Download className="h-3.5 w-3.5" /> Save Summary
+                      </button>
+                    </div>
+                    <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-700">{ghRes.summary}</pre>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {ghRes.items.map((item) => (
+                      <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="clay-card group flex flex-col justify-between p-5">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-mono font-bold text-indigo-600">{item.id}</span>
+                            <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase text-indigo-700">
+                              {item.state}
+                            </span>
+                          </div>
+                          <p className="text-sm font-bold text-slate-900 group-hover:text-indigo-600">{item.title}</p>
+                          {item.body && <p className="line-clamp-2 text-xs leading-6 text-slate-500">{item.body}</p>}
+                        </div>
+                        <div className="mt-4 flex items-center justify-between font-mono text-[11px] text-slate-400">
+                          <span>{item.author} · {item.date}</span>
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* TAB 4: BENCHMARKS */}
+          {tab === "eval" && (
+            <section key="eval" className="animate-tab space-y-7">
+              <div className="clay flex flex-wrap items-center justify-between gap-4 p-7 sm:p-8">
+                <div>
+                  <span className="clay-sky inline-block px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-sky-800">
+                    Benchmarks
+                  </span>
+                  <h2 className="mt-2.5 text-2xl font-bold text-slate-900">SyntaxGraph vs Standard Search</h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Runs 10 real multi-file coding questions to measure accuracy, connection tracing, and update speed.
+                  </p>
+                </div>
+                <button onClick={handleEval} disabled={busy} className="clay-btn px-6 py-3 text-xs font-semibold disabled:opacity-50">
+                  {busy ? "Running Test..." : "Run Benchmark"}
+                </button>
+              </div>
+
+              {evalRes && (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {evalRes.summary.map((row) => {
+                      const info = METRIC_LABELS[row.metric] || { title: row.metric, subtitle: "", tint: "clay-sky" };
+                      const isPct = row.proposed_syntaxgraph.includes("%");
+                      const val = pctValue(row.proposed_syntaxgraph);
+                      return (
+                        <div key={row.metric} className={`${info.tint} clay-card flex items-center justify-between gap-3 p-5`}>
+                          <div>
+                            <div className="text-xs font-bold text-slate-900">{info.title}</div>
+                            <div className="mt-0.5 text-[11px] text-slate-600">{info.subtitle}</div>
+                            <div className="mt-3 font-mono text-2xl font-bold text-slate-900">{row.proposed_syntaxgraph}</div>
+                            <div className="mt-1 text-[11px] text-slate-600">
+                              Standard: {row.baseline_vector_rag} · <span className="font-bold text-indigo-700">{row.improvement}</span>
+                            </div>
+                          </div>
+                          {isPct && <RingGauge value={val} color={row.metric.includes("Hallucination") ? "#10b981" : "#6366f1"} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="clay overflow-hidden p-3">
+                    <table className="w-full text-left text-xs">
+                      <thead className="border-b border-indigo-100 text-slate-500">
+                        <tr>
+                          <th className="px-4 py-3">Question Type</th>
+                          <th className="px-4 py-3">Test Question</th>
+                          <th className="px-4 py-3">Standard Search</th>
+                          <th className="px-4 py-3">SyntaxGraph</th>
+                          <th className="px-4 py-3">Connection Accuracy</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </section>
-        )}
+                      </thead>
+                      <tbody className="divide-y divide-indigo-50">
+                        {evalRes.cases.map((c, idx) => (
+                          <tr key={idx} className="hover:bg-white/60">
+                            <td className="px-4 py-3 font-semibold text-slate-600">
+                              {c.category === "LOCAL_SYMBOL_LOOKUP"
+                                ? "Quick Lookup"
+                                : c.category === "CROSS_FILE_DEPENDENCY_TRACE"
+                                ? "Cross-File Trace"
+                                : "Bug Finding"}
+                            </td>
+                            <td className="px-4 py-3 text-slate-800">{c.query}</td>
+                            <td className="px-4 py-3 font-mono text-slate-500">{c.baseline_recall}%</td>
+                            <td className="px-4 py-3 font-mono font-bold text-emerald-700">{c.syntaxgraph_recall}%</td>
+                            <td className="px-4 py-3 font-mono font-bold text-indigo-700">{c.syntaxgraph_edge_acc}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </section>
+          )}
 
-        {/* TAB 5: TEAM */}
-        {tab === "about" && <AboutSection />}
+          {/* TAB 5: TEAM */}
+          {tab === "about" && <AboutSection />}
 
-        <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 pb-4 text-xs font-medium text-slate-500">
-          <span>SyntaxGraph Team</span>
-          <span>Krishan Kant Sharma · Divanshu Tiwari · Sahil · Deepak Baghel</span>
-        </footer>
-      </main>
+          <footer className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-4 text-xs font-medium text-slate-500">
+            <span>SyntaxGraph Team</span>
+            <span>Krishan Kant Sharma · Divanshu Tiwari · Sahil · Deepak Baghel</span>
+          </footer>
+        </main>
+      </div>
     </div>
   );
 }
