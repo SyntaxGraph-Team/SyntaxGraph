@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, Github } from "lucide-react";
 import { consumeRedirectError, firebaseConfigured, formatAuthError, signInProvider } from "@/lib/firebase";
 import { AboutSection } from "@/components/AboutSection";
+import { CoffeeSection } from "@/components/CoffeeSection";
 
 export function LoginView({ onDemoEnter }: { onDemoEnter?: () => void }) {
   const [error, setError] = useState("");
@@ -137,7 +138,12 @@ export function LoginView({ onDemoEnter }: { onDemoEnter?: () => void }) {
           )}
         </section>
 
-        {showAbout && <AboutSection compact />}
+        {showAbout && (
+          <div className="space-y-8">
+            <AboutSection compact />
+            <CoffeeSection />
+          </div>
+        )}
       </main>
     </div>
   );

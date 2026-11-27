@@ -20,8 +20,9 @@ import { firebaseConfigured, getFirebaseAuth, getGithubUid, getStoredGithubToken
 import { GraphView } from "@/components/GraphView";
 import { LoginView } from "@/components/LoginView";
 import { AboutSection } from "@/components/AboutSection";
+import { CoffeeSection } from "@/components/CoffeeSection";
 
-type TabId = "explorer" | "chat" | "github" | "eval" | "about";
+type TabId = "explorer" | "chat" | "github" | "eval" | "about" | "coffee";
 
 const TABS: Array<{ id: TabId; label: string; hint: string }> = [
   { id: "explorer", label: "Code Map", hint: "Explore files & links" },
@@ -29,6 +30,7 @@ const TABS: Array<{ id: TabId; label: string; hint: string }> = [
   { id: "github", label: "Recent Updates", hint: "Commits & Pull Requests" },
   { id: "eval", label: "Benchmarks", hint: "Accuracy & speed" },
   { id: "about", label: "Team", hint: "SyntaxGraph Team" },
+  { id: "coffee", label: "Buy Us a Coffee", hint: "Support the project" },
 ];
 
 const SAMPLE_QUERIES = [
@@ -1035,6 +1037,9 @@ export default function HomePage() {
 
           {/* TAB 5: TEAM */}
           {tab === "about" && <AboutSection />}
+
+          {/* TAB 6: BUY US A COFFEE */}
+          {tab === "coffee" && <CoffeeSection />}
 
           <footer className="flex flex-wrap items-center justify-between gap-2 pt-2 pb-4 text-xs font-medium text-slate-500">
             <span>SyntaxGraph Team</span>
