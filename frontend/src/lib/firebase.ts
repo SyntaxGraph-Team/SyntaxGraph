@@ -1,5 +1,13 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, GithubAuthProvider, signInWithPopup, signOut, type Auth } from "firebase/auth";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  GithubAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+  type Auth,
+} from "firebase/auth";
 
 const cfg = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -24,7 +32,16 @@ export async function signInProvider(provider: "google" | "github") {
   const auth = getFirebaseAuth();
   if (!auth) return null;
   const prov = provider === "google" ? new GoogleAuthProvider() : new GithubAuthProvider();
-  return signInWithPopup(auth, prov);
+  try {
+    return await signInWithPopup(auth, prov);
+  } catch (err: unknown) {
+    const code = (err as { code?: string })?.code || "";
+    if (code === "auth/popup-blocked") {
+      await signInWithRedirect(auth, prov);
+      return null;
+    }
+    throw err;
+  }
 }
 
 export async function signOutUser() {
