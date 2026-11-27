@@ -4,11 +4,11 @@ import { useMemo, useState } from "react";
 import type { ASTNodeItem, GraphData } from "@/lib/api";
 
 const KIND_META: Record<string, { label: string; color: string }> = {
-  File: { label: "Files", color: "#38bdf8" },
-  Class: { label: "Classes", color: "#c084fc" },
-  Interface: { label: "Interfaces", color: "#a78bfa" },
+  File: { label: "Files", color: "#58d5ba" },
+  Class: { label: "Classes", color: "#60a5fa" },
+  Interface: { label: "Types", color: "#a78bfa" },
   Function: { label: "Functions", color: "#34d399" },
-  Method: { label: "Methods", color: "#f59e0b" },
+  Method: { label: "Methods", color: "#fbbf24" },
 };
 
 interface Props {
@@ -32,21 +32,21 @@ export function GraphView({ data, selectedId, onSelectNode }: Props) {
 
   if (!data.nodes.length) {
     return (
-      <div className="glass flex h-[430px] flex-col items-center justify-center rounded-2xl p-8 text-center">
-        <svg viewBox="0 0 320 96" className="mb-5 h-20 w-64 opacity-85">
-          <path d="M 48 48 C 100 48, 110 22, 160 22" fill="none" stroke="#38bdf8" strokeWidth="1.4" strokeOpacity="0.45" />
-          <path d="M 48 48 C 100 48, 110 74, 160 74" fill="none" stroke="#c084fc" strokeWidth="1.4" strokeOpacity="0.45" />
-          <path d="M 160 22 C 210 22, 220 48, 272 48" fill="none" stroke="#f59e0b" strokeWidth="1.8" className="animate-edge-flow" />
-          <path d="M 160 74 C 210 74, 220 48, 272 48" fill="none" stroke="#34d399" strokeWidth="1.4" strokeOpacity="0.45" />
-          <circle cx="48" cy="48" r="6" fill="#38bdf8" />
-          <circle cx="160" cy="22" r="6" fill="#f59e0b" className="animate-node-pulse" />
-          <circle cx="160" cy="74" r="5" fill="#c084fc" />
+      <div className="panel flex h-[430px] flex-col items-center justify-center rounded-[1.7rem] p-8 text-center">
+        <svg viewBox="0 0 320 96" className="mb-5 h-20 w-64 opacity-90">
+          <path d="M 48 48 C 100 48, 110 22, 160 22" fill="none" stroke="#60a5fa" strokeWidth="1.5" strokeOpacity="0.45" />
+          <path d="M 48 48 C 100 48, 110 74, 160 74" fill="none" stroke="#a78bfa" strokeWidth="1.5" strokeOpacity="0.45" />
+          <path d="M 160 22 C 210 22, 220 48, 272 48" fill="none" stroke="#58d5ba" strokeWidth="2" className="animate-edge-flow" />
+          <path d="M 160 74 C 210 74, 220 48, 272 48" fill="none" stroke="#34d399" strokeWidth="1.5" strokeOpacity="0.45" />
+          <circle cx="48" cy="48" r="6" fill="#58d5ba" />
+          <circle cx="160" cy="22" r="6" fill="#60a5fa" className="animate-node-pulse" />
+          <circle cx="160" cy="74" r="5" fill="#a78bfa" />
           <circle cx="272" cy="48" r="6" fill="#34d399" />
         </svg>
-        <p className="text-base font-medium text-white">Your interactive Code Map will appear here</p>
-        <p className="mt-1.5 max-w-md text-xs leading-relaxed text-zinc-400">
-          Paste any public GitHub link above and click <span className="font-medium text-amber-300">Analyze Repo</span> to
-          see how files, classes, and functions connect.
+        <p className="text-base font-semibold text-white">Your interactive Code Map will appear here</p>
+        <p className="mt-2 max-w-md text-xs leading-6 text-slate-400">
+          Paste any GitHub repository link above and click <span className="font-medium text-[#77e7d2]">Analyze Repo</span>{" "}
+          to see how files, classes, and functions connect.
         </p>
       </div>
     );
@@ -82,7 +82,7 @@ export function GraphView({ data, selectedId, onSelectNode }: Props) {
   const activeId = hovered?.node_id || selectedId;
 
   return (
-    <div className="glass rounded-2xl p-4">
+    <div className="panel rounded-[1.7rem] p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
         {Object.entries(KIND_META).map(([k, meta]) => {
           const active = spotKind === k;
@@ -91,8 +91,10 @@ export function GraphView({ data, selectedId, onSelectNode }: Props) {
               key={k}
               type="button"
               onClick={() => setSpotKind(active ? null : k)}
-              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] transition ${
-                active ? "border-amber-400/50 bg-amber-400/15 text-white" : "border-white/10 bg-white/[0.03] text-zinc-300 hover:bg-white/[0.07]"
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] transition ${
+                active
+                  ? "border-[#58d5ba]/50 bg-[#58d5ba]/15 text-white"
+                  : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
               }`}
             >
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: meta.color }} />
@@ -102,18 +104,18 @@ export function GraphView({ data, selectedId, onSelectNode }: Props) {
         })}
 
         <div className="ml-auto flex items-center gap-2">
-          <div className="flex rounded-lg border border-white/10 bg-black/40 p-0.5 text-[11px]">
+          <div className="flex rounded-full border border-white/10 bg-slate-950/70 p-0.5 text-[11px]">
             <button
               type="button"
               onClick={() => setLayout("lanes")}
-              className={`rounded-md px-2.5 py-0.5 transition ${layout === "lanes" ? "bg-white/12 text-white" : "text-zinc-400"}`}
+              className={`rounded-full px-3 py-1 transition ${layout === "lanes" ? "bg-[#58d5ba] font-medium text-slate-950" : "text-slate-400"}`}
             >
               Flow Lanes
             </button>
             <button
               type="button"
               onClick={() => setLayout("orbit")}
-              className={`rounded-md px-2.5 py-0.5 transition ${layout === "orbit" ? "bg-white/12 text-white" : "text-zinc-400"}`}
+              className={`rounded-full px-3 py-1 transition ${layout === "orbit" ? "bg-[#58d5ba] font-medium text-slate-950" : "text-slate-400"}`}
             >
               Orbit
             </button>
@@ -122,15 +124,15 @@ export function GraphView({ data, selectedId, onSelectNode }: Props) {
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Search name or file..."
-            className="w-40 rounded-lg border border-white/10 bg-black/40 px-2.5 py-1 text-xs text-zinc-200 outline-none focus:border-amber-400/60"
+            placeholder="Filter by name..."
+            className="w-36 rounded-full border border-white/10 bg-slate-950/70 px-3 py-1 text-xs text-slate-200 outline-none focus:border-[#58d5ba]/60"
           />
         </div>
       </div>
 
-      <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-black/40">
+      <div className="relative overflow-hidden rounded-[1.25rem] border border-white/10 bg-slate-950/75">
         {layout === "lanes" && (
-          <div className="pointer-events-none grid grid-cols-3 border-b border-white/[0.06] bg-white/[0.02] px-6 py-1.5 text-center font-mono text-[10px] uppercase tracking-widest text-zinc-500">
+          <div className="pointer-events-none grid grid-cols-3 border-b border-white/[0.06] bg-white/[0.02] px-6 py-2 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
             <span>Files</span>
             <span>Classes &amp; Types</span>
             <span>Functions &amp; Methods</span>
@@ -138,9 +140,9 @@ export function GraphView({ data, selectedId, onSelectNode }: Props) {
         )}
 
         {hovered && (
-          <div className="pointer-events-none absolute top-9 left-3 z-10 rounded-xl border border-white/15 bg-zinc-950/90 px-3 py-2 shadow-xl backdrop-blur-md">
-            <div className="text-xs font-medium text-white">{hovered.name}</div>
-            <div className="mt-0.5 font-mono text-[10px] text-zinc-400">
+          <div className="pointer-events-none absolute top-10 left-3 z-10 rounded-2xl border border-[#58d5ba]/30 bg-slate-950/90 px-3.5 py-2 shadow-xl backdrop-blur-md">
+            <div className="text-xs font-semibold text-white">{hovered.name}</div>
+            <div className="mt-0.5 font-mono text-[10px] text-[#77e7d2]">
               {hovered.kind} · {hovered.file_path}:{hovered.start_line}
             </div>
           </div>
@@ -152,7 +154,7 @@ export function GraphView({ data, selectedId, onSelectNode }: Props) {
             const t = pos.get(e.target);
             if (!s || !t) return null;
             const highlighted = Boolean(activeId && (e.source === activeId || e.target === activeId));
-            const color = e.kind === "CALLS" ? "#f59e0b" : e.kind === "IMPORTS" ? "#38bdf8" : e.kind === "INHERITS" ? "#c084fc" : "#52525b";
+            const color = e.kind === "CALLS" ? "#58d5ba" : e.kind === "IMPORTS" ? "#60a5fa" : e.kind === "INHERITS" ? "#a78bfa" : "#475569";
             const midX = (s.x + t.x) / 2;
             const d = layout === "lanes" ? `M ${s.x} ${s.y} C ${midX} ${s.y}, ${midX} ${t.y}, ${t.x} ${t.y}` : `M ${s.x} ${s.y} L ${t.x} ${t.y}`;
             return (
@@ -161,7 +163,7 @@ export function GraphView({ data, selectedId, onSelectNode }: Props) {
                 d={d}
                 fill="none"
                 stroke={color}
-                strokeOpacity={activeId ? (highlighted ? 0.95 : 0.08) : 0.35}
+                strokeOpacity={activeId ? (highlighted ? 0.95 : 0.08) : 0.34}
                 strokeWidth={highlighted ? 2 : 1.05}
                 className={highlighted && (e.kind === "CALLS" || e.kind === "IMPORTS") ? "animate-edge-flow" : undefined}
               />
@@ -172,7 +174,7 @@ export function GraphView({ data, selectedId, onSelectNode }: Props) {
             const p = pos.get(n.node_id)!;
             const isSel = n.node_id === selectedId;
             const isHov = n.node_id === hovered?.node_id;
-            const color = KIND_META[n.kind]?.color || "#a1a1aa";
+            const color = KIND_META[n.kind]?.color || "#94a3b8";
             const showLabel = layout === "lanes" ? nodes.length <= 42 || isSel || isHov : isSel || isHov || nodes.length <= 24;
             return (
               <g
@@ -182,14 +184,14 @@ export function GraphView({ data, selectedId, onSelectNode }: Props) {
                 onMouseLeave={() => setHovered(null)}
                 className="cursor-pointer"
               >
-                {(isSel || isHov) && <circle cx={p.x} cy={p.y} r={13} fill={color} fillOpacity={0.18} className="animate-node-pulse" />}
-                <circle cx={p.x} cy={p.y} r={isSel || isHov ? 6.8 : 5} fill={color} />
+                {(isSel || isHov) && <circle cx={p.x} cy={p.y} r={13} fill={color} fillOpacity={0.2} className="animate-node-pulse" />}
+                <circle cx={p.x} cy={p.y} r={isSel || isHov ? 7 : 5} fill={color} />
                 {showLabel && (
                   <text
                     x={layout === "lanes" ? p.x + 11 : p.x}
                     y={layout === "lanes" ? p.y + 3 : p.y + 15}
                     textAnchor={layout === "lanes" ? "start" : "middle"}
-                    fill={isSel || isHov ? "#ffffff" : "#a1a1aa"}
+                    fill={isSel || isHov ? "#ffffff" : "#94a3b8"}
                     fontSize={isSel || isHov ? "10" : "8.5"}
                     fontFamily="monospace"
                   >

@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Space_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
-const sans = Inter({ subsets: ["latin"], variable: "--font-sans" });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-sans" });
+const ibmMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: "SyntaxGraph | Codebase Intelligence",
-  description: "AST-Driven Property Graph & Agentic Hybrid GraphRAG Platform by SyntaxGraph Team",
+  description: "Explore how your codebase connects, ask plain-English questions, and summarize recent commits and PRs.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="en" className={`${spaceGrotesk.variable} ${ibmMono.variable}`}>
       <body className="min-h-screen font-sans antialiased">{children}</body>
     </html>
   );

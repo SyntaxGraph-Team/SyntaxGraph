@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { Copy, Download, ExternalLink, LogOut, Trash2, X } from "lucide-react";
+import { ArrowRight, Copy, Download, ExternalLink, LogOut, Trash2, X } from "lucide-react";
 import {
   api,
   type ASTNodeItem,
@@ -22,13 +22,15 @@ import { AboutSection } from "@/components/AboutSection";
 
 type TabId = "explorer" | "chat" | "github" | "eval" | "about";
 
-const TABS: Array<{ id: TabId; label: string; hint: string }> = [
-  { id: "explorer", label: "Code Map", hint: "Explore files & connections" },
-  { id: "chat", label: "Ask AI", hint: "Plain-English Q&A" },
-  { id: "github", label: "Updates", hint: "Commits & Pull Requests" },
-  { id: "eval", label: "Benchmarks", hint: "Accuracy & speed" },
-  { id: "about", label: "Team", hint: "SyntaxGraph Team" },
+const TABS: Array<{ id: TabId; label: string }> = [
+  { id: "explorer", label: "Code Map" },
+  { id: "chat", label: "Ask AI" },
+  { id: "github", label: "Updates" },
+  { id: "eval", label: "Benchmarks" },
+  { id: "about", label: "Team" },
 ];
+
+const MARQUEE_WORDS = ["CODE MAP", "ASK QUESTIONS", "TRACE CALLS", "SUMMARIZE PRS", "HEALTH CHECK", "BENCHMARKS"];
 
 const SAMPLE_QUERIES = [
   "How do the main files connect to each other?",
@@ -37,10 +39,10 @@ const SAMPLE_QUERIES = [
 ];
 
 const METRIC_LABELS: Record<string, { title: string; subtitle: string }> = {
-  "Multi-Hop File Recall@K": { title: "Cross-File Accuracy", subtitle: "Finds all related files across folders" },
-  "Cross-File Call Tracing Accuracy": { title: "Connection Tracing", subtitle: "Follows who calls whom accurately" },
-  "Unresolved / Hallucination Rate": { title: "Wrong Symbol Rate", subtitle: "Lower means fewer made-up answers" },
-  "Commit Re-Indexing Latency": { title: "Update Speed", subtitle: "Time to refresh after a code change" },
+  "Multi-Hop File Recall@K": { title: "Cross-File Accuracy", subtitle: "Finds related files across folders" },
+  "Cross-File Call Tracing Accuracy": { title: "Connection Tracing", subtitle: "Follows who calls whom" },
+  "Unresolved / Hallucination Rate": { title: "Wrong Symbol Rate", subtitle: "Fewer made-up references" },
+  "Commit Re-Indexing Latency": { title: "Update Speed", subtitle: "Refresh time after changes" },
 };
 
 function downloadMarkdown(filename: string, content: string) {
@@ -275,112 +277,106 @@ export default function HomePage() {
   if (!authReady) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <div className="aurora-bg" />
-        <div className="glass rounded-2xl px-6 py-3.5 text-xs text-zinc-300">Signing you in...</div>
+        <div className="panel rounded-full px-6 py-3 text-xs text-slate-300">Signing you in...</div>
       </main>
     );
   }
 
   if (firebaseConfigured ? !user : !devUnlocked) {
     return (
-      <>
-        <div className="aurora-bg" />
-        <div className="aurora-orb-1" />
-        <div className="aurora-orb-2" />
-        <LoginView
-          onDemoEnter={() => {
-            setDevUnlocked(true);
-            refreshRepos();
-          }}
-        />
-      </>
+      <LoginView
+        onDemoEnter={() => {
+          setDevUnlocked(true);
+          refreshRepos();
+        }}
+      />
     );
   }
 
   return (
-    <>
-      <div className="aurora-bg" />
-      <div className="aurora-orb-1" />
-      <div className="aurora-orb-2" />
+    <div className="relative min-h-screen">
+      <div className="pointer-events-none fixed inset-0 faded-grid opacity-40" />
 
-      <main className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6">
-        {/* Glass Command Header */}
-        <header className="glass-strong relative mb-6 overflow-hidden rounded-3xl px-6 py-5">
-          {busy && (
-            <div className="absolute inset-x-0 top-0 h-[2px] overflow-hidden bg-white/5">
-              <div className="animate-shimmer h-full w-1/3 bg-gradient-to-r from-transparent via-amber-400 to-transparent" />
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl font-semibold tracking-tight text-white">SyntaxGraph</h1>
-                <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-0.5 font-mono text-[11px] text-amber-300">
-                  {repoId}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-zinc-400">
-                Understand any GitHub codebase in seconds — visual code maps, plain-English Q&amp;A, and update summaries.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              {health && (
-                <span className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] text-zinc-300">
-                  <span className="relative flex h-2 w-2">
-                    <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${health.store_mode === "neo4j+qdrant" ? "bg-emerald-400" : "bg-amber-400"}`} />
-                    <span className={`relative inline-flex h-2 w-2 rounded-full ${health.store_mode === "neo4j+qdrant" ? "bg-emerald-400" : "bg-amber-400"}`} />
-                  </span>
-                  {health.store_mode === "neo4j+qdrant" ? "Cloud Engine Online" : "Local Mode"}
-                </span>
-              )}
-
-              {firebaseConfigured && user ? (
-                <button
-                  onClick={signOutUser}
-                  className="flex items-center gap-2 rounded-xl border border-white/12 bg-white/[0.04] px-3.5 py-1.5 text-xs text-zinc-200 transition hover:border-white/25 hover:bg-white/[0.08]"
-                >
-                  <span>{user.email || user.displayName}</span>
-                  <LogOut className="h-3.5 w-3.5 text-zinc-400" />
-                </button>
-              ) : (
-                <button
-                  onClick={() => setDevUnlocked(false)}
-                  className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs text-zinc-300 hover:text-white"
-                >
-                  Sign Out
-                </button>
-              )}
-            </div>
+      {/* Sticky Glass Navbar */}
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/70 backdrop-blur-xl">
+        {busy && (
+          <div className="absolute inset-x-0 top-0 h-[2px] overflow-hidden bg-white/5">
+            <div className="animate-shimmer h-full w-1/3 bg-gradient-to-r from-transparent via-[#58d5ba] to-transparent" />
           </div>
+        )}
 
-          {/* Navigation Dock */}
-          <nav className="mt-5 flex flex-wrap gap-2 border-t border-white/[0.08] pt-4">
-            {TABS.map(({ id, label, hint }) => {
-              const active = tab === id;
-              return (
+        <div className="mx-auto flex h-18 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-6">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.28em] text-[#58d5ba]/80">Codebase Intelligence</p>
+              <p className="text-lg font-semibold text-white">SyntaxGraph</p>
+            </div>
+
+            <nav className="hidden items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] p-1 md:flex">
+              {TABS.map(({ id, label }) => (
                 <button
                   key={id}
                   onClick={() => setTab(id)}
-                  className={`group flex flex-col items-start rounded-2xl border px-4 py-2 text-left transition duration-200 ${
-                    active
-                      ? "border-amber-400/50 bg-gradient-to-br from-amber-400/20 to-amber-500/5 text-white shadow-sm"
-                      : "border-white/[0.07] bg-white/[0.02] text-zinc-400 hover:border-white/15 hover:bg-white/[0.05] hover:text-zinc-100"
+                  className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
+                    tab === id
+                      ? "bg-[#58d5ba] font-semibold text-slate-950"
+                      : "text-slate-300 hover:bg-white/5 hover:text-white"
                   }`}
                 >
-                  <span className={`text-xs font-semibold ${active ? "text-amber-300" : ""}`}>{label}</span>
-                  <span className="text-[10px] text-zinc-500 group-hover:text-zinc-400">{hint}</span>
+                  {label}
                 </button>
-              );
-            })}
-          </nav>
-        </header>
+              ))}
+            </nav>
+          </div>
 
+          <div className="flex items-center gap-3">
+            {health && (
+              <span className="hidden items-center gap-2 rounded-full border border-[#58d5ba]/25 bg-[#58d5ba]/10 px-3 py-1 text-xs text-[#77e7d2] sm:inline-flex">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#58d5ba]" />
+                {health.store_mode === "neo4j+qdrant" ? "Cloud Engine Online" : "Local Mode"}
+              </span>
+            )}
+
+            {firebaseConfigured && user ? (
+              <button
+                onClick={signOutUser}
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-slate-200 transition hover:bg-white/10"
+              >
+                <span className="max-w-[140px] truncate">{user.email || user.displayName}</span>
+                <LogOut className="h-3.5 w-3.5 text-slate-400" />
+              </button>
+            ) : (
+              <button
+                onClick={() => setDevUnlocked(false)}
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-slate-300 hover:text-white"
+              >
+                Sign Out
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile Nav */}
+        <div className="flex gap-1.5 overflow-x-auto border-t border-white/5 px-4 py-2 md:hidden">
+          {TABS.map(({ id, label }) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`shrink-0 rounded-full px-3.5 py-1 text-xs font-medium ${
+                tab === id ? "bg-[#58d5ba] text-slate-950" : "bg-white/5 text-slate-300"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <main className="relative mx-auto flex min-h-[calc(100vh-4.5rem)] max-w-7xl flex-col px-4 py-8 sm:px-6 lg:px-8">
         {status && (
-          <div className="glass animate-tab mb-5 flex items-center justify-between rounded-2xl border-amber-400/25 px-4 py-3 text-xs text-zinc-100">
+          <div className="panel animate-tab mb-6 flex items-center justify-between rounded-2xl border-[#58d5ba]/30 px-4 py-3 text-xs text-slate-100">
             <span>{status}</span>
-            <button onClick={() => setStatus("")} aria-label="Dismiss status" className="text-zinc-400 hover:text-white">
+            <button onClick={() => setStatus("")} aria-label="Dismiss status" className="text-slate-400 hover:text-white">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -389,140 +385,153 @@ export default function HomePage() {
         <div className="flex-1">
           {/* TAB 1: CODE MAP */}
           {tab === "explorer" && (
-            <section key="explorer" className="animate-tab space-y-5">
-              {/* Bento Top Row: Input + Telemetry */}
-              <div className="grid gap-4 lg:grid-cols-12">
-                <form onSubmit={handleIngest} className="glass-strong flex flex-col justify-between gap-3 rounded-3xl p-5 lg:col-span-8">
+            <section key="explorer" className="animate-tab space-y-6">
+              {/* Hero Command Panel */}
+              <div className="panel-strong relative overflow-hidden rounded-[2.2rem] px-6 py-8 sm:px-10">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top_left,rgba(88,213,186,0.16),transparent_55%),radial-gradient(circle_at_top_right,rgba(56,189,248,0.16),transparent_45%)]" />
+                <div className="pointer-events-none absolute inset-x-0 top-4">
+                  <div className="headline-marquee">
+                    <div className="headline-marquee-track">
+                      {[...MARQUEE_WORDS, ...MARQUEE_WORDS].map((w, i) => (
+                        <span key={i} className="headline-marquee-word">{w}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative mt-4 grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
                   <div>
-                    <div className="text-sm font-semibold text-white">Connect a GitHub Repository</div>
-                    <p className="mt-0.5 text-xs text-zinc-400">
-                      Paste a repository link to map its files, classes, and functions — or pick a saved project below.
+                    <p className="text-xs uppercase tracking-[0.28em] text-[#58d5ba]/85">Interactive Code Map</p>
+                    <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                      Explore a codebase{" "}
+                      <span className="hero-accent-text">without losing the big picture.</span>
+                    </h1>
+                    <p className="mt-2.5 max-w-xl text-sm leading-7 text-slate-300">
+                      Paste any GitHub repository URL to build a live map of files, classes, and functions — or pick a
+                      saved project below.
                     </p>
+
+                    <form onSubmit={handleIngest} className="mt-6 space-y-3">
+                      <div className="flex flex-wrap gap-2.5">
+                        <input
+                          value={repoUrl}
+                          onChange={(e) => setRepoUrl(e.target.value)}
+                          placeholder="https://github.com/owner/repo"
+                          className="min-w-[240px] flex-1 rounded-full border border-white/15 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none focus:border-[#58d5ba]"
+                        />
+                        <input
+                          value={repoId}
+                          onChange={(e) => setRepoId(e.target.value)}
+                          placeholder="Project ID"
+                          className="w-52 rounded-full border border-white/15 bg-slate-950/75 px-4 py-3 font-mono text-xs text-slate-300 outline-none focus:border-[#58d5ba]"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap gap-2.5">
+                        <button
+                          disabled={busy}
+                          className="inline-flex items-center gap-2 rounded-full bg-[#58d5ba] px-6 py-2.5 text-xs font-semibold text-slate-950 transition hover:bg-[#77e7d2] disabled:opacity-50"
+                        >
+                          {busy ? "Analyzing..." : "Analyze Repo"}
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleLoadGraph()}
+                          disabled={busy}
+                          className="rounded-full border border-white/12 bg-white/5 px-5 py-2.5 text-xs font-medium text-white transition hover:bg-white/10"
+                        >
+                          Open Saved
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSummarizeProject}
+                          disabled={busy}
+                          className="rounded-full border border-[#58d5ba]/30 bg-[#58d5ba]/10 px-5 py-2.5 text-xs font-medium text-[#77e7d2] transition hover:bg-[#58d5ba]/20"
+                        >
+                          Project Overview
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAudit}
+                          disabled={busy}
+                          className="rounded-full border border-rose-400/30 bg-rose-400/10 px-5 py-2.5 text-xs font-medium text-rose-300 transition hover:bg-rose-400/20"
+                        >
+                          Health Check
+                        </button>
+                      </div>
+                    </form>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      value={repoUrl}
-                      onChange={(e) => setRepoUrl(e.target.value)}
-                      placeholder="https://github.com/owner/repo"
-                      className="min-w-[240px] flex-1 rounded-xl border border-white/10 bg-black/45 px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-amber-400/60"
-                    />
-                    <input
-                      value={repoId}
-                      onChange={(e) => setRepoId(e.target.value)}
-                      placeholder="Project ID"
-                      className="w-48 rounded-xl border border-white/10 bg-black/45 px-3 py-2.5 font-mono text-xs text-zinc-300 outline-none focus:border-amber-400/60"
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      disabled={busy}
-                      className="rounded-xl bg-amber-400 px-5 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-amber-300 active:scale-[0.98] disabled:opacity-50"
-                    >
-                      {busy ? "Working..." : "Analyze Repo"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleLoadGraph()}
-                      disabled={busy}
-                      className="rounded-xl border border-white/12 bg-white/[0.05] px-4 py-2 text-xs font-medium text-zinc-200 transition hover:bg-white/[0.1]"
-                    >
-                      Open Saved
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSummarizeProject}
-                      disabled={busy}
-                      className="rounded-xl border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-xs font-medium text-sky-300 transition hover:bg-sky-400/20"
-                    >
-                      Project Overview
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAudit}
-                      disabled={busy}
-                      className="rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-300 transition hover:bg-rose-400/20"
-                    >
-                      Health Check
-                    </button>
-                  </div>
-                </form>
-
-                {/* Live Stats Bento */}
-                <div className="grid grid-cols-3 gap-3 lg:col-span-4 lg:grid-cols-1">
-                  <div className="glass bento-hover flex items-center justify-between rounded-2xl px-5 py-3.5">
-                    <div>
-                      <div className="text-[11px] text-zinc-400">Code Items Mapped</div>
-                      <div className="text-[10px] text-zinc-500">Files, classes, functions</div>
+                  {/* Live Bento Metrics */}
+                  <div className="grid grid-cols-3 gap-3 lg:grid-cols-2">
+                    <div className="interactive-card rounded-[1.45rem] border border-white/10 bg-slate-950/60 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-[#58d5ba]/80">Items</p>
+                      <p className="mt-2 text-3xl font-semibold text-white">{activeGraph.nodes.length}</p>
+                      <p className="mt-1 text-xs text-slate-400">Files &amp; functions mapped</p>
                     </div>
-                    <div className="font-mono text-2xl font-semibold text-white">{activeGraph.nodes.length}</div>
-                  </div>
-                  <div className="glass bento-hover flex items-center justify-between rounded-2xl px-5 py-3.5">
-                    <div>
-                      <div className="text-[11px] text-zinc-400">Connections Found</div>
-                      <div className="text-[10px] text-zinc-500">Calls, imports, inheritance</div>
+                    <div className="interactive-card rounded-[1.45rem] border border-white/10 bg-slate-950/60 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-[#58d5ba]/80">Links</p>
+                      <p className="mt-2 text-3xl font-semibold text-white">{activeGraph.edges.length}</p>
+                      <p className="mt-1 text-xs text-slate-400">Calls &amp; imports traced</p>
                     </div>
-                    <div className="font-mono text-2xl font-semibold text-amber-300">{activeGraph.edges.length}</div>
-                  </div>
-                  <div className="glass bento-hover flex items-center justify-between rounded-2xl px-5 py-3.5">
-                    <div>
-                      <div className="text-[11px] text-zinc-400">Saved Projects</div>
-                      <div className="text-[10px] text-zinc-500">Ready to explore</div>
+                    <div className="interactive-card col-span-3 rounded-[1.45rem] border border-white/10 bg-slate-950/60 p-4 lg:col-span-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] uppercase tracking-[0.2em] text-[#58d5ba]/80">Saved Projects</span>
+                        <span className="font-mono text-xs text-slate-400">{repos.length} available</span>
+                      </div>
+                      <div className="mt-2.5 flex flex-wrap gap-2">
+                        {repos.length ? (
+                          repos.map((r) => (
+                            <span
+                              key={r.repo_id}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px]"
+                            >
+                              <button onClick={() => handleLoadGraph(r.repo_id)} className="font-mono text-slate-200 hover:text-[#77e7d2]">
+                                {r.repo_id} ({r.files}f)
+                              </button>
+                              <button onClick={() => handleDeleteRepo(r.repo_id)} aria-label={`Delete ${r.repo_id}`} className="text-slate-500 hover:text-rose-400">
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-500">Analyze a repo to save it here.</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="font-mono text-2xl font-semibold text-sky-300">{repos.length}</div>
                   </div>
                 </div>
               </div>
 
-              {/* Saved Repositories & Connection Finder */}
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="glass flex flex-wrap items-center gap-2 rounded-2xl px-4 py-3">
-                  <span className="text-xs font-medium text-zinc-400">Saved Projects:</span>
-                  {repos.length ? (
-                    repos.map((r) => (
-                      <span key={r.repo_id} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] transition hover:border-amber-400/40">
-                        <button onClick={() => handleLoadGraph(r.repo_id)} className="font-mono text-zinc-200 hover:text-amber-300">
-                          {r.repo_id} ({r.files} files)
-                        </button>
-                        <button onClick={() => handleDeleteRepo(r.repo_id)} aria-label={`Delete ${r.repo_id}`} className="text-zinc-500 hover:text-rose-400">
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-zinc-500">None yet — analyze a repository above.</span>
-                  )}
-                </div>
+              {/* Connection Path Finder */}
+              <form onSubmit={handleTracePath} className="panel flex flex-wrap items-center gap-3 rounded-[1.5rem] px-5 py-3.5">
+                <span className="text-xs font-medium text-slate-300">Trace how two functions connect:</span>
+                <input
+                  value={pathSrc}
+                  onChange={(e) => setPathSrc(e.target.value)}
+                  placeholder="Start function (e.g. handle_checkout)"
+                  className="min-w-[180px] flex-1 rounded-full border border-white/10 bg-slate-950/75 px-4 py-2 font-mono text-xs text-slate-200 outline-none focus:border-[#58d5ba]"
+                />
+                <span className="text-xs text-slate-500">to</span>
+                <input
+                  value={pathTgt}
+                  onChange={(e) => setPathTgt(e.target.value)}
+                  placeholder="Target function"
+                  className="min-w-[180px] flex-1 rounded-full border border-white/10 bg-slate-950/75 px-4 py-2 font-mono text-xs text-slate-200 outline-none focus:border-[#58d5ba]"
+                />
+                <button disabled={busy} className="rounded-full bg-white/10 px-5 py-2 text-xs font-medium text-white transition hover:bg-[#58d5ba] hover:text-slate-950">
+                  Find Path
+                </button>
+              </form>
 
-                <form onSubmit={handleTracePath} className="glass flex flex-wrap items-center gap-2 rounded-2xl px-4 py-2.5">
-                  <span className="text-xs font-medium text-zinc-400">Trace Connection:</span>
-                  <input
-                    value={pathSrc}
-                    onChange={(e) => setPathSrc(e.target.value)}
-                    placeholder="Start function"
-                    className="w-32 flex-1 rounded-lg border border-white/10 bg-black/40 px-2.5 py-1.5 font-mono text-xs text-zinc-200 outline-none focus:border-amber-400/60"
-                  />
-                  <span className="text-xs text-zinc-500">to</span>
-                  <input
-                    value={pathTgt}
-                    onChange={(e) => setPathTgt(e.target.value)}
-                    placeholder="Target function"
-                    className="w-32 flex-1 rounded-lg border border-white/10 bg-black/40 px-2.5 py-1.5 font-mono text-xs text-zinc-200 outline-none focus:border-amber-400/60"
-                  />
-                  <button disabled={busy} className="rounded-lg border border-amber-400/35 bg-amber-400/15 px-3.5 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-400/25">
-                    Find Path
-                  </button>
-                </form>
-              </div>
-
-              {/* Map + Slide-in Inspector */}
+              {/* Map + Slide-In Inspector */}
               <div className="grid gap-5 lg:grid-cols-3">
                 <div className="space-y-3 lg:col-span-2">
                   {subgraphOverlay && (
-                    <div className="glass flex items-center justify-between rounded-xl border-amber-400/25 px-4 py-2.5 text-xs text-amber-300">
+                    <div className="panel flex items-center justify-between rounded-2xl border-[#58d5ba]/30 px-4 py-2.5 text-xs text-[#77e7d2]">
                       <span>{subgraphOverlay.label}</span>
-                      <button onClick={() => setSubgraphOverlay(null)} className="font-medium underline hover:text-amber-200">
+                      <button onClick={() => setSubgraphOverlay(null)} className="font-medium underline">
                         Show Full Project
                       </button>
                     </div>
@@ -530,14 +539,14 @@ export default function HomePage() {
                   <GraphView data={activeGraph} selectedId={selectedNode?.node_id} onSelectNode={handleSelectNode} />
                 </div>
 
-                <div className="glass rounded-2xl p-5">
+                <div className="panel rounded-[1.7rem] p-5">
                   {selectedNode ? (
                     <div key={selectedNode.node_id} className="animate-slide-right space-y-3.5">
                       <div className="flex items-center justify-between">
-                        <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-0.5 text-[11px] font-medium text-amber-300">
+                        <span className="rounded-full border border-[#58d5ba]/30 bg-[#58d5ba]/10 px-3 py-0.5 text-[11px] font-medium text-[#77e7d2]">
                           {selectedNode.kind}
                         </span>
-                        <span className="font-mono text-[11px] text-zinc-400">
+                        <span className="font-mono text-[11px] text-slate-400">
                           Lines {selectedNode.start_line}-{selectedNode.end_line}
                         </span>
                       </div>
@@ -550,11 +559,11 @@ export default function HomePage() {
                           <button
                             type="button"
                             onClick={() => handleCopyCode(selectedNode.raw_code || selectedNode.signature || "")}
-                            className="absolute top-2 right-2 rounded-md border border-white/10 bg-zinc-900/90 px-2 py-1 font-mono text-[10px] text-zinc-300 hover:text-white"
+                            className="absolute top-2.5 right-2.5 rounded-lg border border-white/10 bg-slate-900/90 px-2 py-1 font-mono text-[10px] text-slate-300 hover:text-white"
                           >
                             {copied ? "Copied" : <Copy className="h-3 w-3" />}
                           </button>
-                          <pre className="max-h-44 overflow-auto rounded-xl border border-white/10 bg-black/50 p-3 font-mono text-[11px] leading-relaxed text-zinc-300">
+                          <pre className="max-h-44 overflow-auto rounded-2xl border border-white/10 bg-slate-950/90 p-3 font-mono text-[11px] leading-relaxed text-slate-300">
                             {selectedNode.raw_code || selectedNode.signature}
                           </pre>
                         </div>
@@ -562,16 +571,16 @@ export default function HomePage() {
                       <button
                         onClick={() => handleBlastRadius(selectedNode)}
                         disabled={busy}
-                        className="w-full rounded-xl border border-amber-400/35 bg-amber-400/15 py-2.5 text-xs font-semibold text-amber-300 transition hover:bg-amber-400/25"
+                        className="w-full rounded-full bg-[#58d5ba]/15 py-2.5 text-xs font-semibold text-[#77e7d2] transition hover:bg-[#58d5ba] hover:text-slate-950"
                       >
                         See What This Affects
                       </button>
                       <div className="border-t border-white/10 pt-3">
-                        <div className="mb-2 text-[11px] font-medium text-zinc-400">Direct Links ({connectedEdges.length})</div>
+                        <div className="mb-2 text-[11px] font-medium text-slate-400">Direct Links ({connectedEdges.length})</div>
                         <div className="max-h-28 space-y-1 overflow-y-auto pr-1">
                           {connectedEdges.slice(0, 10).map((e, i) => (
-                            <div key={i} className="truncate rounded-lg bg-white/[0.03] px-2.5 py-1 font-mono text-[10px] text-zinc-300">
-                              {e.source.split(":").slice(-2, -1)[0] || e.source} <span className="text-amber-300">[{e.kind}]</span>{" "}
+                            <div key={i} className="truncate rounded-xl bg-white/[0.03] px-3 py-1.5 font-mono text-[10px] text-slate-300">
+                              {e.source.split(":").slice(-2, -1)[0] || e.source} <span className="text-[#58d5ba]">[{e.kind}]</span>{" "}
                               {e.target.split(":").slice(-2, -1)[0] || e.target}
                             </div>
                           ))}
@@ -579,9 +588,9 @@ export default function HomePage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex h-full min-h-[260px] flex-col items-center justify-center text-center">
-                      <div className="text-sm font-medium text-zinc-200">Code Inspector</div>
-                      <p className="mt-1.5 max-w-[220px] text-xs leading-relaxed text-zinc-500">
+                    <div className="flex h-full min-h-[280px] flex-col items-center justify-center text-center">
+                      <div className="text-sm font-semibold text-white">Code Inspector</div>
+                      <p className="mt-2 max-w-[230px] text-xs leading-6 text-slate-400">
                         Click any dot on the map to read its source code and see which parts of the project depend on it.
                       </p>
                     </div>
@@ -591,28 +600,28 @@ export default function HomePage() {
 
               {/* Health Check */}
               {auditRes && (
-                <div className="glass-strong animate-tab grid gap-5 rounded-3xl p-6 md:grid-cols-3">
+                <div className="panel-strong animate-tab grid gap-5 rounded-[2rem] p-6 md:grid-cols-3">
                   <div>
                     <div className="mb-2.5 text-xs font-semibold text-rose-300">Circular Loops ({auditRes.cycles.length})</div>
                     {auditRes.cycles.length ? (
                       <div className="space-y-1.5">
                         {auditRes.cycles.map((c, i) => (
-                          <div key={i} className="rounded-lg border border-rose-400/20 bg-rose-400/5 px-3 py-1.5 font-mono text-[11px] text-zinc-200">
+                          <div key={i} className="rounded-xl border border-rose-400/20 bg-rose-400/5 px-3 py-2 font-mono text-[11px] text-slate-200">
                             {c.join(" -> ")}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-zinc-400">No circular loops found — clean dependency flow.</p>
+                      <p className="text-xs text-slate-400">No circular loops found.</p>
                     )}
                   </div>
                   <div>
-                    <div className="mb-2.5 text-xs font-semibold text-amber-300">Most Connected Code ({auditRes.hotspots.length})</div>
+                    <div className="mb-2.5 text-xs font-semibold text-[#77e7d2]">Most Connected Code ({auditRes.hotspots.length})</div>
                     <div className="space-y-1.5">
                       {auditRes.hotspots.map((h) => (
-                        <div key={h.node_id} className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-1.5 text-xs">
-                          <span className="truncate font-mono text-zinc-200">{h.name}</span>
-                          <span className="shrink-0 font-mono text-[10px] text-zinc-400">{h.fan_in} in / {h.fan_out} out</span>
+                        <div key={h.node_id} className="flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2 text-xs">
+                          <span className="truncate font-mono text-slate-200">{h.name}</span>
+                          <span className="shrink-0 font-mono text-[10px] text-slate-400">{h.fan_in} in / {h.fan_out} out</span>
                         </div>
                       ))}
                     </div>
@@ -621,9 +630,9 @@ export default function HomePage() {
                     <div className="mb-2.5 text-xs font-semibold text-sky-300">Unused Functions ({auditRes.orphan_symbols.length})</div>
                     <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
                       {auditRes.orphan_symbols.map((o) => (
-                        <div key={o.node_id} className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-1.5 text-xs">
-                          <span className="truncate font-mono text-zinc-200">{o.name}</span>
-                          <span className="shrink-0 font-mono text-[10px] text-zinc-500">{o.file_path}:{o.start_line}</span>
+                        <div key={o.node_id} className="flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2 text-xs">
+                          <span className="truncate font-mono text-slate-200">{o.name}</span>
+                          <span className="shrink-0 font-mono text-[10px] text-slate-500">{o.file_path}:{o.start_line}</span>
                         </div>
                       ))}
                     </div>
@@ -633,27 +642,27 @@ export default function HomePage() {
 
               {/* Whole Project Overview */}
               {projectSummary && (
-                <div className="glass-strong animate-tab space-y-4 rounded-3xl p-6">
+                <div className="panel-strong animate-tab space-y-4 rounded-[2rem] p-6 sm:p-8">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-base font-semibold text-white">
-                      Project Overview · <span className="font-mono text-amber-300">{projectSummary.repo_id}</span>
+                    <h2 className="text-lg font-semibold text-white">
+                      Project Overview · <span className="font-mono text-[#77e7d2]">{projectSummary.repo_id}</span>
                     </h2>
                     <button
                       onClick={() => downloadMarkdown(`${projectSummary.repo_id}-overview.md`, projectSummary.summary)}
-                      className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.05] px-3 py-1 text-[11px] text-zinc-200 hover:bg-white/10"
+                      className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs text-slate-200 hover:bg-white/10"
                     >
-                      <Download className="h-3 w-3" /> Save Report
+                      <Download className="h-3.5 w-3.5" /> Save Report
                     </button>
                   </div>
                   <div className="grid gap-5 md:grid-cols-3">
-                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-zinc-200 md:col-span-2">{projectSummary.summary}</pre>
-                    <div className="rounded-2xl border border-white/10 bg-black/35 p-4">
-                      <div className="mb-2.5 text-xs font-semibold text-zinc-300">Core Building Blocks</div>
+                    <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-200 md:col-span-2">{projectSummary.summary}</pre>
+                    <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
+                      <div className="mb-3 text-xs font-semibold text-slate-300">Core Building Blocks</div>
                       <div className="space-y-2">
                         {projectSummary.hubs.map((h) => (
                           <div key={`${h.file_path}:${h.name}`} className="flex items-center justify-between text-xs">
-                            <span className="truncate font-mono text-amber-300">{h.name}</span>
-                            <span className="shrink-0 rounded bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] text-zinc-400">{h.degree} links</span>
+                            <span className="truncate font-mono text-[#77e7d2]">{h.name}</span>
+                            <span className="shrink-0 rounded-full bg-white/5 px-2.5 py-0.5 font-mono text-[10px] text-slate-400">{h.degree} links</span>
                           </div>
                         ))}
                       </div>
@@ -666,42 +675,42 @@ export default function HomePage() {
 
           {/* TAB 2: ASK AI */}
           {tab === "chat" && (
-            <section key="chat" className="animate-tab space-y-5">
-              <div className="glass-strong rounded-3xl p-5">
-                <div className="mb-3">
-                  <h2 className="text-base font-semibold text-white">Ask Anything About This Codebase</h2>
-                  <p className="mt-0.5 text-xs text-zinc-400">
-                    Instead of guessing from isolated snippets, SyntaxGraph follows real function connections and points to exact files and lines.
-                  </p>
-                </div>
+            <section key="chat" className="animate-tab space-y-6">
+              <div className="panel-strong rounded-[2.2rem] p-6 sm:p-8">
+                <p className="text-xs uppercase tracking-[0.28em] text-[#58d5ba]/80">Grounded Code Q&amp;A</p>
+                <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Ask anything about your repository</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">
+                  Answers are pulled directly from your mapped code and include clickable file and line links.
+                </p>
 
-                <form onSubmit={handleQuery} className="flex flex-wrap gap-2.5">
+                <form onSubmit={handleQuery} className="mt-5 flex flex-wrap gap-2.5">
                   <input
                     value={repoId}
                     onChange={(e) => setRepoId(e.target.value)}
                     placeholder="Project ID"
-                    className="w-52 rounded-xl border border-white/10 bg-black/45 px-3 py-2.5 font-mono text-xs text-zinc-300 outline-none focus:border-amber-400/60"
+                    className="w-52 rounded-full border border-white/15 bg-slate-950/75 px-4 py-3 font-mono text-xs text-slate-300 outline-none focus:border-[#58d5ba]"
                   />
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Ask a question in plain English..."
-                    className="min-w-[240px] flex-1 rounded-xl border border-white/10 bg-black/45 px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-amber-400/60"
+                    className="min-w-[240px] flex-1 rounded-full border border-white/15 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none focus:border-[#58d5ba]"
                   />
                   <button
                     disabled={busy}
-                    className="rounded-xl bg-amber-400 px-6 py-2.5 text-xs font-semibold text-zinc-950 transition hover:bg-amber-300 active:scale-[0.98] disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-full bg-[#58d5ba] px-6 py-3 text-xs font-semibold text-slate-950 transition hover:bg-[#77e7d2] disabled:opacity-50"
                   >
                     {busy ? "Searching..." : "Ask AI"}
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </form>
 
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   {[...SAMPLE_QUERIES, ...history.filter((h) => !SAMPLE_QUERIES.includes(h))].slice(0, 6).map((q) => (
                     <button
                       key={q}
                       onClick={() => setQuery(q)}
-                      className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-zinc-300 transition hover:border-amber-400/40 hover:text-amber-300"
+                      className="rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs text-slate-300 transition hover:border-[#58d5ba]/40 hover:text-white"
                     >
                       {q}
                     </button>
@@ -709,17 +718,12 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                {[
-                  "1. Understand Question",
-                  "2. Search Matching Code",
-                  "3. Follow File Links",
-                  "4. Write Grounded Answer",
-                ].map((step) => (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {["1. Understand Question", "2. Find Matching Code", "3. Follow File Links", "4. Write Grounded Answer"].map((step) => (
                   <div
                     key={step}
-                    className={`glass rounded-2xl px-4 py-3 text-xs font-medium transition ${
-                      queryRes || busy ? "border-amber-400/35 text-amber-200" : "text-zinc-400"
+                    className={`panel rounded-2xl px-4 py-3 text-xs font-medium transition ${
+                      queryRes || busy ? "border-[#58d5ba]/35 text-[#77e7d2]" : "text-slate-400"
                     }`}
                   >
                     {step}
@@ -729,11 +733,11 @@ export default function HomePage() {
 
               {queryRes && (
                 <div className="grid gap-5 lg:grid-cols-3">
-                  <div className="glass-strong animate-tab space-y-4 rounded-3xl p-6 lg:col-span-2">
-                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-zinc-100">{queryRes.answer}</pre>
-                    <div className="border-t border-white/10 pt-3.5">
-                      <div className="mb-2 text-xs font-medium text-zinc-400">Referenced Files (click to open on map)</div>
-                      <div className="flex flex-wrap gap-1.5">
+                  <div className="panel-strong animate-tab space-y-4 rounded-[2rem] p-6 lg:col-span-2">
+                    <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-100">{queryRes.answer}</pre>
+                    <div className="border-t border-white/10 pt-4">
+                      <div className="mb-2.5 text-xs font-medium text-slate-400">Referenced Files (click to inspect)</div>
+                      <div className="flex flex-wrap gap-2">
                         {queryRes.citations.map((c) => (
                           <button
                             key={c.node_id}
@@ -741,7 +745,7 @@ export default function HomePage() {
                               handleSelectNode(c);
                               setTab("explorer");
                             }}
-                            className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 font-mono text-[11px] text-sky-300 transition hover:border-amber-400/40 hover:text-amber-300"
+                            className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] text-[#77e7d2] transition hover:border-[#58d5ba]/50"
                           >
                             {c.file_path}:{c.start_line}-{c.end_line} · {c.name}
                           </button>
@@ -749,10 +753,10 @@ export default function HomePage() {
                       </div>
                     </div>
                   </div>
-                  <div className="glass animate-slide-right space-y-2.5 rounded-3xl p-5">
-                    <div className="text-xs font-semibold text-zinc-200">How We Found This</div>
+                  <div className="panel animate-slide-right space-y-2.5 rounded-[2rem] p-5">
+                    <div className="text-xs font-semibold text-white">Steps Taken</div>
                     {queryRes.trace.map((t, i) => (
-                      <div key={i} className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 font-mono text-[11px] text-zinc-300">
+                      <div key={i} className="rounded-2xl border border-white/10 bg-slate-950/70 px-3.5 py-2.5 font-mono text-[11px] text-slate-300">
                         {t}
                       </div>
                     ))}
@@ -762,87 +766,91 @@ export default function HomePage() {
             </section>
           )}
 
-          {/* TAB 3: UPDATES (COMMITS & PRS) */}
+          {/* TAB 3: UPDATES */}
           {tab === "github" && (
-            <section key="github" className="animate-tab space-y-5">
-              <form onSubmit={handleGithubSummary} className="glass-strong flex flex-wrap items-center gap-2.5 rounded-3xl p-4">
-                <input
-                  value={repoUrl}
-                  onChange={(e) => setRepoUrl(e.target.value)}
-                  placeholder="https://github.com/owner/repo"
-                  className="min-w-[260px] flex-1 rounded-xl border border-white/10 bg-black/45 px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-amber-400/60"
-                />
-                <div className="flex rounded-xl border border-white/10 bg-black/45 p-1">
-                  <button
-                    type="button"
-                    onClick={() => setGhKind("commits")}
-                    className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition ${ghKind === "commits" ? "bg-amber-400 text-zinc-950" : "text-zinc-400 hover:text-zinc-200"}`}
+            <section key="github" className="animate-tab space-y-6">
+              <div className="panel-strong rounded-[2.2rem] p-6 sm:p-8">
+                <p className="text-xs uppercase tracking-[0.28em] text-[#58d5ba]/80">Activity Digest</p>
+                <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Summarize recent commits &amp; pull requests</h2>
+                <form onSubmit={handleGithubSummary} className="mt-5 flex flex-wrap items-center gap-2.5">
+                  <input
+                    value={repoUrl}
+                    onChange={(e) => setRepoUrl(e.target.value)}
+                    placeholder="https://github.com/owner/repo"
+                    className="min-w-[260px] flex-1 rounded-full border border-white/15 bg-slate-950/75 px-4 py-3 text-sm text-white outline-none focus:border-[#58d5ba]"
+                  />
+                  <div className="flex rounded-full border border-white/10 bg-slate-950/75 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setGhKind("commits")}
+                      className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${ghKind === "commits" ? "bg-[#58d5ba] text-slate-950" : "text-slate-400 hover:text-white"}`}
+                    >
+                      Recent Commits
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGhKind("prs")}
+                      className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${ghKind === "prs" ? "bg-[#58d5ba] text-slate-950" : "text-slate-400 hover:text-white"}`}
+                    >
+                      Pull Requests
+                    </button>
+                  </div>
+                  <select
+                    value={ghLimit}
+                    onChange={(e) => setGhLimit(Number(e.target.value))}
+                    className="rounded-full border border-white/15 bg-slate-950/75 px-4 py-3 text-xs text-slate-200 outline-none"
                   >
-                    Recent Commits
-                  </button>
+                    <option value={5}>Last 5</option>
+                    <option value={10}>Last 10</option>
+                    <option value={15}>Last 15</option>
+                  </select>
                   <button
-                    type="button"
-                    onClick={() => setGhKind("prs")}
-                    className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition ${ghKind === "prs" ? "bg-amber-400 text-zinc-950" : "text-zinc-400 hover:text-zinc-200"}`}
+                    disabled={busy}
+                    className="rounded-full bg-[#58d5ba] px-6 py-3 text-xs font-semibold text-slate-950 transition hover:bg-[#77e7d2] disabled:opacity-50"
                   >
-                    Pull Requests
+                    {busy ? "Summarizing..." : "Summarize"}
                   </button>
-                </div>
-                <select
-                  value={ghLimit}
-                  onChange={(e) => setGhLimit(Number(e.target.value))}
-                  className="rounded-xl border border-white/10 bg-black/45 px-3 py-2.5 text-xs text-zinc-200 outline-none"
-                >
-                  <option value={5}>Last 5</option>
-                  <option value={10}>Last 10</option>
-                  <option value={15}>Last 15</option>
-                </select>
-                <button
-                  disabled={busy}
-                  className="rounded-xl bg-amber-400 px-5 py-2.5 text-xs font-semibold text-zinc-950 transition hover:bg-amber-300 active:scale-[0.98] disabled:opacity-50"
-                >
-                  {busy ? "Summarizing..." : "Summarize"}
-                </button>
-              </form>
+                </form>
+              </div>
 
               {ghRes && (
                 <div className="animate-tab space-y-4">
-                  <div className="glass-strong rounded-3xl p-6">
+                  <div className="panel-strong rounded-[2rem] p-6 sm:p-8">
                     <div className="mb-3 flex items-center justify-between">
-                      <h2 className="text-base font-semibold text-white">
+                      <h3 className="text-base font-semibold text-white">
                         Summary of {ghRes.kind === "commits" ? "Recent Commits" : "Pull Requests"} ·{" "}
-                        <span className="font-mono text-amber-300">{ghRes.repo}</span>
-                      </h2>
+                        <span className="font-mono text-[#77e7d2]">{ghRes.repo}</span>
+                      </h3>
                       <button
                         onClick={() => downloadMarkdown(`${ghRes.repo.replace("/", "_")}-${ghRes.kind}.md`, ghRes.summary)}
-                        className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.05] px-3 py-1 text-[11px] text-zinc-200 hover:bg-white/10"
+                        className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs text-slate-200 hover:bg-white/10"
                       >
-                        <Download className="h-3 w-3" /> Save Summary
+                        <Download className="h-3.5 w-3.5" /> Save Summary
                       </button>
                     </div>
-                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-zinc-200">{ghRes.summary}</pre>
+                    <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-slate-200">{ghRes.summary}</pre>
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                     {ghRes.items.map((item) => (
                       <a
                         key={item.id}
                         href={item.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="glass bento-hover group flex flex-col justify-between rounded-2xl p-4"
+                        className="interactive-card panel group flex flex-col justify-between rounded-[1.5rem] p-5"
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="font-mono text-amber-300">{item.id}</span>
-                            <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] uppercase text-zinc-300">
+                            <span className="font-mono text-[#77e7d2]">{item.id}</span>
+                            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 font-mono text-[10px] uppercase text-slate-300">
                               {item.state}
                             </span>
                           </div>
-                          <p className="text-sm font-medium text-zinc-100 group-hover:text-amber-300">{item.title}</p>
-                          {item.body && <p className="line-clamp-2 text-xs text-zinc-400">{item.body}</p>}
+                          <p className="text-sm font-semibold text-white group-hover:text-[#77e7d2]">{item.title}</p>
+                          {item.body && <p className="line-clamp-2 text-xs leading-6 text-slate-400">{item.body}</p>}
                         </div>
-                        <div className="mt-3 flex items-center justify-between font-mono text-[11px] text-zinc-500">
+                        <div className="mt-4 flex items-center justify-between font-mono text-[11px] text-slate-500">
                           <span>{item.author} · {item.date}</span>
                           <ExternalLink className="h-3.5 w-3.5" />
                         </div>
@@ -856,19 +864,19 @@ export default function HomePage() {
 
           {/* TAB 4: BENCHMARKS */}
           {tab === "eval" && (
-            <section key="eval" className="animate-tab space-y-5">
-              <div className="glass-strong flex flex-wrap items-center justify-between gap-4 rounded-3xl p-6">
+            <section key="eval" className="animate-tab space-y-6">
+              <div className="panel-strong flex flex-wrap items-center justify-between gap-4 rounded-[2.2rem] p-6 sm:p-8">
                 <div>
-                  <h2 className="text-base font-semibold text-white">Accuracy &amp; Speed Benchmark</h2>
-                  <p className="mt-0.5 text-xs text-zinc-400">
-                    Tests 10 real coding questions comparing <span className="text-zinc-200">Standard Text Search</span> against{" "}
-                    <span className="text-amber-300">SyntaxGraph</span>.
+                  <p className="text-xs uppercase tracking-[0.28em] text-[#58d5ba]/80">Quality &amp; Speed</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Compare SyntaxGraph vs Standard Search</h2>
+                  <p className="mt-1.5 text-sm text-slate-300">
+                    Runs 10 real multi-file coding questions to measure accuracy, connection tracing, and update speed.
                   </p>
                 </div>
                 <button
                   onClick={handleEval}
                   disabled={busy}
-                  className="rounded-xl bg-amber-400 px-6 py-2.5 text-xs font-semibold text-zinc-950 transition hover:bg-amber-300 active:scale-[0.98] disabled:opacity-50"
+                  className="rounded-full bg-[#58d5ba] px-6 py-3 text-xs font-semibold text-slate-950 transition hover:bg-[#77e7d2] disabled:opacity-50"
                 >
                   {busy ? "Running Test..." : "Run Benchmark"}
                 </button>
@@ -882,46 +890,46 @@ export default function HomePage() {
                       const isPct = row.proposed_syntaxgraph.includes("%");
                       const val = pctValue(row.proposed_syntaxgraph);
                       return (
-                        <div key={row.metric} className="glass-strong bento-hover flex items-center justify-between gap-3 rounded-2xl p-5">
+                        <div key={row.metric} className="panel-strong interactive-card flex items-center justify-between gap-3 rounded-[1.6rem] p-5">
                           <div>
                             <div className="text-xs font-semibold text-white">{info.title}</div>
-                            <div className="mt-0.5 text-[11px] text-zinc-400">{info.subtitle}</div>
+                            <div className="mt-0.5 text-[11px] text-slate-400">{info.subtitle}</div>
                             <div className="mt-3 font-mono text-2xl font-semibold text-white">{row.proposed_syntaxgraph}</div>
-                            <div className="mt-1 text-[11px] text-zinc-500">
-                              Standard: {row.baseline_vector_rag} · <span className="font-semibold text-amber-300">{row.improvement}</span>
+                            <div className="mt-1 text-[11px] text-slate-400">
+                              Standard: {row.baseline_vector_rag} · <span className="font-semibold text-[#77e7d2]">{row.improvement}</span>
                             </div>
                           </div>
-                          {isPct && <RingGauge value={val} color={row.metric.includes("Hallucination") ? "#34d399" : "#f59e0b"} />}
+                          {isPct && <RingGauge value={val} color={row.metric.includes("Hallucination") ? "#34d399" : "#58d5ba"} />}
                         </div>
                       );
                     })}
                   </div>
 
-                  <div className="glass overflow-hidden rounded-2xl">
+                  <div className="panel overflow-hidden rounded-[1.7rem]">
                     <table className="w-full text-left text-xs">
-                      <thead className="border-b border-white/10 bg-white/[0.03] text-zinc-400">
+                      <thead className="border-b border-white/10 bg-white/[0.03] text-slate-400">
                         <tr>
-                          <th className="px-4 py-3">Question Type</th>
-                          <th className="px-4 py-3">Test Question</th>
-                          <th className="px-4 py-3">Standard Search</th>
-                          <th className="px-4 py-3">SyntaxGraph</th>
-                          <th className="px-4 py-3">Connection Accuracy</th>
+                          <th className="px-5 py-3.5">Question Type</th>
+                          <th className="px-5 py-3.5">Test Question</th>
+                          <th className="px-5 py-3.5">Standard Search</th>
+                          <th className="px-5 py-3.5">SyntaxGraph</th>
+                          <th className="px-5 py-3.5">Connection Accuracy</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/[0.06]">
                         {evalRes.cases.map((c, idx) => (
                           <tr key={idx} className="transition hover:bg-white/[0.03]">
-                            <td className="px-4 py-2.5 text-[11px] text-zinc-400">
+                            <td className="px-5 py-3 text-[11px] text-slate-400">
                               {c.category === "LOCAL_SYMBOL_LOOKUP"
                                 ? "Quick Lookup"
                                 : c.category === "CROSS_FILE_DEPENDENCY_TRACE"
                                 ? "Cross-File Trace"
                                 : "Bug Finding"}
                             </td>
-                            <td className="px-4 py-2.5 text-zinc-200">{c.query}</td>
-                            <td className="px-4 py-2.5 font-mono text-zinc-400">{c.baseline_recall}%</td>
-                            <td className="px-4 py-2.5 font-mono font-semibold text-emerald-300">{c.syntaxgraph_recall}%</td>
-                            <td className="px-4 py-2.5 font-mono font-semibold text-sky-300">{c.syntaxgraph_edge_acc}%</td>
+                            <td className="px-5 py-3 text-slate-200">{c.query}</td>
+                            <td className="px-5 py-3 font-mono text-slate-400">{c.baseline_recall}%</td>
+                            <td className="px-5 py-3 font-mono font-semibold text-[#77e7d2]">{c.syntaxgraph_recall}%</td>
+                            <td className="px-5 py-3 font-mono font-semibold text-sky-300">{c.syntaxgraph_edge_acc}%</td>
                           </tr>
                         ))}
                       </tbody>
@@ -936,11 +944,11 @@ export default function HomePage() {
           {tab === "about" && <AboutSection />}
         </div>
 
-        <footer className="mt-12 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.07] pt-4 text-[11px] text-zinc-500">
+        <footer className="mt-12 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-5 text-xs text-slate-500">
           <span>SyntaxGraph Team</span>
           <span>Krishan Kant Sharma · Divanshu Tiwari · Sahil · Deepak Baghel</span>
         </footer>
       </main>
-    </>
+    </div>
   );
 }
