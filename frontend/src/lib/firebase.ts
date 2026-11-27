@@ -8,6 +8,7 @@ import {
   signInWithRedirect,
   signOut,
   type Auth,
+  type UserCredential,
 } from "firebase/auth";
 
 const cfg = {
@@ -16,6 +17,8 @@ const cfg = {
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
+const GH_TOKEN_KEY = "sg_github_token";
 
 export const firebaseConfigured = Boolean(cfg.apiKey && cfg.authDomain && cfg.projectId);
 
@@ -29,20 +32,30 @@ export function getFirebaseAuth(): Auth | null {
   return authInstance;
 }
 
+export function getStoredGithubToken(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  return sessionStorage.getItem(GH_TOKEN_KEY) || undefined;
+}
+
+function saveGithubCredential(res: UserCredential | null) {
+  if (!res || typeof window === "undefined") return;
+  const cred = GithubAuthProvider.credentialFromResult(res);
+  if (cred?.accessToken) {
+    sessionStorage.setItem(GH_TOKEN_KEY, cred.accessToken);
+  }
+}
+
 export function formatAuthError(err: unknown): string {
   const code = (err as { code?: string })?.code || "";
   const msg = (err as Error)?.message || "Authentication failed";
   if (code === "auth/unauthorized-domain" || msg.includes("unauthorized-domain")) {
-    return `Domain "${typeof window !== "undefined" ? window.location.hostname : ""}" is not in Firebase Authorized Domains. Add it under Firebase Console -> Authentication -> Settings -> Authorized domains.`;
+    return `Domain "${typeof window !== "undefined" ? window.location.hostname : ""}" is not in Firebase Authorized Domains yet.`;
   }
   if (code === "auth/account-exists-with-different-credential") {
-    return "An account already exists with this email using a different sign-in provider (Google vs GitHub). Sign in with the original provider or enable multiple accounts per email in Firebase Auth settings.";
-  }
-  if (code === "auth/operation-not-allowed") {
-    return "This OAuth provider is not enabled in Firebase Console -> Authentication -> Sign-in method.";
+    return "An account already exists with this email using your other login method (Google vs GitHub). Please sign in with that one.";
   }
   if (code === "auth/popup-closed-by-user") {
-    return "Sign-in window was closed before completing authentication.";
+    return "Sign-in window was closed before finishing.";
   }
   return msg;
 }
@@ -51,7 +64,8 @@ export async function consumeRedirectError(): Promise<string> {
   const auth = getFirebaseAuth();
   if (!auth) return "";
   try {
-    await getRedirectResult(auth);
+    const res = await getRedirectResult(auth);
+    saveGithubCredential(res);
     return "";
   } catch (err) {
     return formatAuthError(err);
@@ -62,9 +76,11 @@ export async function signInProvider(provider: "google" | "github") {
   const auth = getFirebaseAuth();
   if (!auth) return null;
   const prov = provider === "google" ? new GoogleAuthProvider() : new GithubAuthProvider();
-  if (provider === "github") prov.addScope("read:user user:email");
+  if (provider === "github") prov.addScope("repo read:user user:email");
   try {
-    return await signInWithPopup(auth, prov);
+    const res = await signInWithPopup(auth, prov);
+    saveGithubCredential(res);
+    return res;
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code || "";
     if (code === "auth/popup-blocked") {
@@ -76,6 +92,7 @@ export async function signInProvider(provider: "google" | "github") {
 }
 
 export async function signOutUser() {
+  if (typeof window !== "undefined") sessionStorage.removeItem(GH_TOKEN_KEY);
   const auth = getFirebaseAuth();
   if (auth) await signOut(auth);
 }

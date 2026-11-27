@@ -1,11 +1,12 @@
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-async function req<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
+async function req<T>(path: string, options: RequestInit = {}, token?: string, githubToken?: string): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
   if (token) headers.Authorization = `Bearer ${token}`;
+  if (githubToken) headers["X-GitHub-Token"] = githubToken;
 
   const res = await fetch(`${API}${path}`, { ...options, headers });
   if (!res.ok) {
@@ -34,6 +35,15 @@ export interface RepoInfo {
   repo_id: string;
   nodes: number;
   files: number;
+}
+
+export interface GitHubUserRepo {
+  name: string;
+  full_name: string;
+  url: string;
+  private: boolean;
+  language: string;
+  updated_at: string;
 }
 
 export interface GraphData {
@@ -80,13 +90,16 @@ export interface GitHubSummaryResult {
 export const api = {
   health: () => req<{ status: string; store_mode: string; llm_configured: boolean }>("/health"),
   listRepos: (token?: string) => req<{ repos: RepoInfo[] }>("/api/repos", {}, token),
+  listGithubRepos: (token?: string, githubToken?: string) =>
+    req<{ repos: GitHubUserRepo[] }>("/api/github/repos", {}, token, githubToken),
   deleteRepo: (repo_id: string, token?: string) =>
     req<{ deleted: string }>(`/api/repos/${encodeURIComponent(repo_id)}`, { method: "DELETE" }, token),
-  ingest: (repo_url: string, repo_id?: string, token?: string) =>
+  ingest: (repo_url: string, repo_id?: string, token?: string, githubToken?: string) =>
     req<{ repo_id: string; files_parsed: number; nodes_indexed: number; edges_indexed: number; latency_ms: number }>(
       "/api/repos/ingest",
       { method: "POST", body: JSON.stringify({ repo_url, repo_id: repo_id || null }) },
-      token
+      token,
+      githubToken
     ),
   graph: (repo_id: string, token?: string) => req<GraphData>(`/api/repos/${encodeURIComponent(repo_id)}/graph`, {}, token),
   nodeDetail: (repo_id: string, node_id: string, token?: string) =>
@@ -98,8 +111,8 @@ export const api = {
     req<GraphData>(`/api/repos/${encodeURIComponent(repo_id)}/path?source=${encodeURIComponent(source)}&target=${encodeURIComponent(target)}`, {}, token),
   summarizeRepo: (repo_id: string, token?: string) =>
     req<RepoSummaryResult>(`/api/repos/${encodeURIComponent(repo_id)}/summarize`, { method: "POST" }, token),
-  summarizeGithub: (repo_url: string, kind: "commits" | "prs", limit = 5, token?: string) =>
-    req<GitHubSummaryResult>("/api/github/summarize", { method: "POST", body: JSON.stringify({ repo_url, kind, limit }) }, token),
+  summarizeGithub: (repo_url: string, kind: "commits" | "prs", limit = 5, token?: string, githubToken?: string) =>
+    req<GitHubSummaryResult>("/api/github/summarize", { method: "POST", body: JSON.stringify({ repo_url, kind, limit }) }, token, githubToken),
   query: (repo_id: string, query: string, token?: string) =>
     req<QueryResult>("/api/query", { method: "POST", body: JSON.stringify({ repo_id, query }) }, token),
   eval: (use_live_stores = false, use_llm = false, token?: string) =>

@@ -127,3 +127,7 @@ def test_api_end_to_end(tmp_path: Path):
         pth = client.get("/api/repos/local_test/path?source=entry&target=helper")
         assert pth.status_code == 200
         assert len(pth.json()["nodes"]) == 2
+
+        gh_r = client.get("/api/github/repos")
+        assert gh_r.status_code == 200
+        assert gh_r.json() == {"repos": []}

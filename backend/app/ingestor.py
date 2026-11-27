@@ -21,7 +21,7 @@ def _run_git(args: list[str], cwd: Path | None = None) -> None:
         raise RuntimeError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
 
 
-async def ensure_repo_checkout(repo_url: str, repo_id: str, branch: str = "main") -> Path:
+async def ensure_repo_checkout(repo_url: str, repo_id: str, branch: str = "main", github_token: str | None = None) -> Path:
     local = Path(repo_url)
     if local.exists() and local.is_dir():
         return local.resolve()
@@ -31,22 +31,28 @@ async def ensure_repo_checkout(repo_url: str, repo_id: str, branch: str = "main"
     base.mkdir(parents=True, exist_ok=True)
     target = (base / repo_id).resolve()
 
+    token = github_token or s.github_token
     auth_url = repo_url
-    if s.github_token and repo_url.startswith("https://github.com/"):
-        auth_url = repo_url.replace("https://", f"https://x-access-token:{s.github_token}@", 1)
+    if token and repo_url.startswith("https://github.com/"):
+        auth_url = repo_url.replace("https://", f"https://x-access-token:{token}@", 1)
 
     if (target / ".git").exists():
         await asyncio.to_thread(_run_git, ["fetch", "--depth", "1", "origin", branch], target)
         await asyncio.to_thread(_run_git, ["reset", "--hard", f"origin/{branch}"], target)
     else:
-        await asyncio.to_thread(_run_git, ["clone", "--depth", "1", "--branch", branch, auth_url, str(target)])
+        try:
+            await asyncio.to_thread(_run_git, ["clone", "--depth", "1", "--branch", branch, auth_url, str(target)])
+        except RuntimeError:
+            await asyncio.to_thread(_run_git, ["clone", "--depth", "1", auth_url, str(target)])
     return target
 
 
-async def ingest_repository(store: GraphVectorStore, repo_url: str, repo_id: str | None = None, branch: str = "main") -> dict:
+async def ingest_repository(
+    store: GraphVectorStore, repo_url: str, repo_id: str | None = None, branch: str = "main", github_token: str | None = None
+) -> dict:
     t0 = time.perf_counter()
     rid = repo_id or derive_repo_id(repo_url)
-    root = await ensure_repo_checkout(repo_url, rid, branch)
+    root = await ensure_repo_checkout(repo_url, rid, branch, github_token=github_token)
     parsed = await asyncio.to_thread(parse_files, root, rid)
     await store.upsert(parsed.nodes, parsed.edges)
     return {

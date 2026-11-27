@@ -2,7 +2,7 @@ import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -10,7 +10,7 @@ from .agent import build_agent
 from .auth import require_auth, verify_github_webhook
 from .config import get_settings
 from .eval import run_evaluation
-from .github_intel import audit_repo_graph, summarize_github_activity, summarize_project_graph
+from .github_intel import audit_repo_graph, list_user_github_repos, summarize_github_activity, summarize_project_graph
 from .ingestor import derive_repo_id, ingest_repository, sync_delta
 from .models import EvalRequest, GitHubSummaryRequest, IngestRequest, QueryRequest
 from .stores import DualHybridStore, GraphVectorStore, InMemoryHybridStore
@@ -77,9 +77,13 @@ async def delete_repo(repo_id: str, _: dict = Depends(require_auth)):
 
 
 @app.post("/api/repos/ingest")
-async def ingest_repo(req: IngestRequest, _: dict = Depends(require_auth)):
+async def ingest_repo(
+    req: IngestRequest,
+    x_github_token: str | None = Header(default=None),
+    _: dict = Depends(require_auth),
+):
     try:
-        return await ingest_repository(get_store(), req.repo_url, req.repo_id, req.branch)
+        return await ingest_repository(get_store(), req.repo_url, req.repo_id, req.branch, github_token=x_github_token)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -182,9 +186,27 @@ async def symbol_impact(repo_id: str, node_id: str, hops: int = 2, _: dict = Dep
     return await get_store().graph_neighbors(repo_id, [node_id], hops=hops, limit=40)
 
 
-@app.post("/api/github/summarize")
-async def github_summarize(req: GitHubSummaryRequest, _: dict = Depends(require_auth)):
+@app.get("/api/github/repos")
+async def github_user_repos(
+    limit: int = 24,
+    x_github_token: str | None = Header(default=None),
+    _: dict = Depends(require_auth),
+):
+    if not x_github_token:
+        return {"repos": []}
     try:
-        return await summarize_github_activity(req.repo_url, req.kind, req.limit)
+        return {"repos": await list_user_github_repos(x_github_token, limit=limit)}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/github/summarize")
+async def github_summarize(
+    req: GitHubSummaryRequest,
+    x_github_token: str | None = Header(default=None),
+    _: dict = Depends(require_auth),
+):
+    try:
+        return await summarize_github_activity(req.repo_url, req.kind, req.limit, github_token=x_github_token)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
